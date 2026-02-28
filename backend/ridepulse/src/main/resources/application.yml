@@ -1,0 +1,33 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ridepulse
+    username: ridepulse_user
+    password: strongpassword
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  jackson:
+    serialization:
+      indent_output: true
+
+server:
+  port: 8080
+
+JWT:
+  secret: 5367566B59703373367639792F423F4528482B4D6251655468576D5A71347437
+  expiration: 86400000  # 24 hours in milliseconds
+  token-prefix: "Bearer "
+  header-string: "Authorization"
+
+  # Logging
+  logging:
+    level:
+      com.ridepulse.backend: DEBUG
+      org.springframework.security: DEBUG

@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+# Flutter
+frontend/flutter/
+frontend/*.zip
+.dart_tool/
+build/
+
+# Java
+target/
