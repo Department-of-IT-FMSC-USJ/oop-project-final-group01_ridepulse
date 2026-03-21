@@ -1,23 +1,25 @@
 package com.ridepulse.backend.repository;
 
-import com.ridepulse.backend.model.Route;
+import com.ridepulse.backend.entity.Route;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
 
 /**
- * Route Repository
+ * OOP Abstraction: Route data access — used for dropdown and detail views.
+ * Used by: RouteServiceImpl, BusManagementServiceImpl
  */
 @Repository
-public interface RouteRepository extends JpaRepository<Route, Long> {
+public interface RouteRepository extends JpaRepository<Route, Integer> {
 
+    // Used by: RouteServiceImpl.getAllActiveRoutes() — populates Flutter dropdown
+    List<Route> findByIsActiveTrueOrderByRouteNumber();
+
+    // Used by: BusManagementServiceImpl — find route by number for validation
     Optional<Route> findByRouteNumber(String routeNumber);
 
-    List<Route> findByIsActiveTrue();
-
-    @Query("SELECT r FROM Route r WHERE r.isActive = true ORDER BY r.routeNumber")
-    List<Route> findAllActiveRoutes();
+    // Used by: RouteServiceImpl — check if route number already exists
+    boolean existsByRouteNumber(String routeNumber);
 }

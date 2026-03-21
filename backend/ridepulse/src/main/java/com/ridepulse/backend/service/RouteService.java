@@ -1,23 +1,10 @@
 package com.ridepulse.backend.service;
 
-import com.ridepulse.backend.model.Route;
+import com.ridepulse.backend.dto.*;
 import java.util.List;
-import java.util.Optional;
 
+/** OOP Abstraction: contract for route operations */
 public interface RouteService {
-
-    Route createRoute(Route route);
-
-    Optional<Route> getRouteById(Integer routeId);
-
-    List<Route> getAllRoutes();
-
-    List<Route> getActiveRoutes();
-
-    Route updateRoute(Integer routeId, Route route);
-
-    void deleteRoute(Integer routeId);
-
-    // Business method - calculates ETA
-    Double calculateETA(Integer routeId);
+    List<RouteDropdownDTO> getAllActiveRoutes();   // For dropdown
+    RouteDetailDTO         getRouteById(Integer routeId);
 }

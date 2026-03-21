@@ -1,7 +1,5 @@
 package com.ridepulse.backend.config;
 
-import com.ridepulse.backend.security.JwtAuthenticationFilter;
-import com.ridepulse.backend.security.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,133 +21,66 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
-/**
- * Security configuration for RidePulse backend.
- *
- * Responsibilities:
- * - Configure JWT authentication
- * - Define public and protected endpoints
- * - Configure password encoding
- * - Configure authentication provider
- * - Configure CORS
- */
-
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    private final CustomUserDetailsService customUserDetailsService;
+    private final JwtAuthFilter            jwtAuthFilter;
+    private final CustomUserDetailsService userDetailsService; // ← now the standalone class
 
-    /**
-     * BCrypt password encoder
-     */
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+                .csrf(csrf -> csrf.disable())
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(
+                                "/api/v1/auth/login",
+                                "/api/v1/auth/register/passenger",
+                                "/api/v1/auth/register/bus-owner",
+                                "/api/v1/auth/register/authority",
+                                "/api/v1/auth/refresh",
+                                "/api/v1/routes"          // route dropdown is public
+                        ).permitAll()
+                        .anyRequest().authenticated()
+                )
+                .authenticationProvider(authenticationProvider())
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
+    }
+
+    @Bean
+    public AuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+        provider.setUserDetailsService(userDetailsService);
+        provider.setPasswordEncoder(passwordEncoder());
+        return provider;
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(
+            AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
+    }
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
-    /**
-     * Authentication provider that connects
-     * UserDetailsService + PasswordEncoder
-     */
-    @Bean
-    public AuthenticationProvider authenticationProvider() {
-
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-
-        provider.setUserDetailsService(customUserDetailsService);
-        provider.setPasswordEncoder(passwordEncoder());
-
-        // IMPORTANT: force email-based login
-        provider.setHideUserNotFoundExceptions(false);
-
-        return provider;
-    }
-    /**
-     * Authentication manager
-     * used during login authentication
-     */
-    @Bean
-    public AuthenticationManager authenticationManager(
-            AuthenticationConfiguration configuration
-    ) throws Exception {
-        return configuration.getAuthenticationManager();
-    }
-    /**
-     * Main Spring Security filter chain
-     */
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-
-        http
-
-                // Disable CSRF for stateless APIs
-                .csrf(csrf -> csrf.disable())
-
-                // Enable CORS
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-
-                // Authorization rules
-                .authorizeHttpRequests(auth -> auth
-
-                        // Public endpoints
-                        .requestMatchers(
-                                "/api/auth/**",
-                                "/api/public/**",
-                                "/error",
-                                "/actuator/health"
-                        ).permitAll()
-
-                        // Role based endpoints
-                        .requestMatchers("/api/admin/**").hasAuthority("ADMIN")
-                        .requestMatchers("/api/passenger/**").hasAuthority("PASSENGER")
-                        .requestMatchers("/api/driver/**").hasAuthority("DRIVER")
-                        .requestMatchers("/api/conductor/**").hasAuthority("CONDUCTOR")
-
-                        // Everything else requires authentication
-                        .anyRequest().authenticated()
-                )
-
-                // Stateless session (JWT)
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
-
-                // Authentication provider
-                .authenticationProvider(authenticationProvider())
-
-                // JWT filter before default auth filter
-                .addFilterBefore(
-                        jwtAuthenticationFilter,
-                        UsernamePasswordAuthenticationFilter.class
-                );
-
-        return http.build();
-    }
-
-    /**
-     * Global CORS configuration
-     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-
-        CorsConfiguration configuration = new CorsConfiguration();
-
-        configuration.setAllowedOrigins(List.of("*"));
-        configuration.setAllowedMethods(
-                List.of("GET", "POST", "PUT", "DELETE", "OPTIONS")
-        );
-        configuration.setAllowedHeaders(List.of("*"));
-        configuration.setExposedHeaders(List.of("Authorization"));
-
-        UrlBasedCorsConfigurationSource source =
-                new UrlBasedCorsConfigurationSource();
-
-        source.registerCorsConfiguration("/**", configuration);
-
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOriginPatterns(List.of("*"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(true);
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
         return source;
     }
 }

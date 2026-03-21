@@ -1,28 +1,25 @@
 package com.ridepulse.backend.repository;
 
-import com.ridepulse.backend.model.User;
+import com.ridepulse.backend.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
+
 import java.util.Optional;
 import java.util.UUID;
 
 /**
- * UserRepository - Demonstrates ABSTRACTION (OOP Concept)
- * Interface defines contract for data access operations
- * Implementation details are hidden by Spring Data JPA
+ * OOP Abstraction: Hides all user-table SQL behind typed method signatures.
+ * Used by: AuthServiceImpl, CustomUserDetailsService
  */
 @Repository
 public interface UserRepository extends JpaRepository<User, UUID> {
 
-    /**
-     * Abstraction: Method signature defines WHAT to do, not HOW
-     * Spring Data JPA provides implementation automatically
-     */
+    // Used by: AuthServiceImpl.login(), CustomUserDetailsService.loadUserByUsername()
     Optional<User> findByEmail(String email);
 
-    Optional<User> findByPhone(String phone);
-
+    // Used by: AuthServiceImpl.validateEmailUnique()
     boolean existsByEmail(String email);
 
+    // Used by: AuthServiceImpl (phone uniqueness check on registration)
     boolean existsByPhone(String phone);
 }

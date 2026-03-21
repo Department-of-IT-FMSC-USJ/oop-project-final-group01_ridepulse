@@ -1,219 +1,186 @@
 package com.ridepulse.backend.service.impl;
 
-import com.ridepulse.backend.dto.CreateWelfareRecordRequest;
-import com.ridepulse.backend.dto.WelfareRecordDTO;
-import com.ridepulse.backend.dto.WelfareSummaryDTO;
-import com.ridepulse.backend.model.*;
-import com.ridepulse.backend.repository.BusRepository;
-import com.ridepulse.backend.repository.StaffRepository;
-import com.ridepulse.backend.repository.WelfareRecordRepository;
+import com.ridepulse.backend.dto.StaffProfileDTO;
+import com.ridepulse.backend.entity.*;
+import com.ridepulse.backend.entity.Staff.StaffType;
+import com.ridepulse.backend.repository.*;
 import com.ridepulse.backend.service.WelfareService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class WelfareServiceImpl implements WelfareService {
 
-    private final WelfareRecordRepository welfareRecordRepository;
-    private final StaffRepository staffRepository;
-    private final BusRepository busRepository;
+    private final BusRepository busRepo;
+    private final StaffBusAssignmentRepository assignmentRepo;
+    private final StaffWelfareBalanceRepository welfareRepo;
+    private final MonthlyRevenueSummaryRepository monthlyRepo;
+    private final DailyRevenueRepository dailyRevenueRepo;
+    private final DailyFuelExpenseRepository fuelRepo;
+    private final BusMaintenanceConfigRepository maintenanceRepo;
 
     /**
-     * Create welfare record
+     * Scheduled job: runs on the 1st of every month at midnight.
+     * OOP Polymorphism: StaffType.getWelfareRate() resolves rate per type.
+     * OOP Abstraction: Callers only know "welfare is processed" — not how.
      */
+    @Scheduled(cron = "0 0 0 1 * *")   // 1st of every month, midnight
     @Override
-    public WelfareRecordDTO createWelfareRecord(CreateWelfareRecordRequest request) {
+    @Transactional
+    public void processMonthlyWelfare(int month, int year) {
+        log.info("Processing welfare for {}/{}", month, year);
 
-        Staff staff = staffRepository.findById(request.getStaffId())
-                .orElseThrow(() -> new RuntimeException("Staff not found"));
+        List<Bus> allBuses = busRepo.findAll();
 
-        Bus bus = busRepository.findById(request.getBusId())
-                .orElseThrow(() -> new RuntimeException("Bus not found"));
-
-        welfareRecordRepository
-                .findByStaffUserIdAndRecordDate(request.getStaffId(), request.getRecordDate())
-                .ifPresent(existing -> {
-                    throw new RuntimeException("Welfare record already exists for this date");
-                });
-
-        WelfareRecord welfareRecord = new WelfareRecord();
-        welfareRecord.setBus(bus);
-        welfareRecord.setStaff(staff);
-        welfareRecord.setRecordDate(request.getRecordDate());
-        welfareRecord.setDailyRevenue(request.getDailyRevenue());
-        welfareRecord.setFuelCost(request.getFuelCost());
-        welfareRecord.setMaintenanceCost(request.getMaintenanceCost());
-        welfareRecord.setWages(request.getWages());
-        welfareRecord.setStaffType(request.getStaffType());
-
-        welfareRecord.calculateWelfare();
-
-        WelfareRecord saved = welfareRecordRepository.save(welfareRecord);
-
-        return convertToDTO(saved);
-    }
-
-    @Override
-    public WelfareRecordDTO getWelfareRecordById(Integer recordId) {
-        WelfareRecord record = welfareRecordRepository.findById(recordId)
-                .orElseThrow(() -> new RuntimeException("Welfare record not found"));
-
-        return convertToDTO(record);
-    }
-
-    @Override
-    public List<WelfareRecordDTO> getWelfareRecordsByStaff(UUID staffId) {
-
-        return welfareRecordRepository
-                .findByStaffUserIdOrderByRecordDateDesc(staffId)
-                .stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<WelfareRecordDTO> getWelfareRecordsByBus(Integer busId) {
-
-        return welfareRecordRepository
-                .findByBusBusIdOrderByRecordDateDesc(busId)
-                .stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<WelfareRecordDTO> getWelfareRecordsByDateRange(LocalDate startDate, LocalDate endDate) {
-
-        return welfareRecordRepository
-                .findByRecordDateBetween(startDate, endDate)
-                .stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<WelfareRecordDTO> getWelfareRecordsByStatus(WelfareStatus status) {
-
-        return welfareRecordRepository
-                .findByStatusOrderByRecordDateDesc(status)
-                .stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
+        for (Bus bus : allBuses) {
+            try {
+                processBusWelfare(bus, month, year);
+            } catch (Exception e) {
+                log.error("Welfare processing failed for bus {}: {}", bus.getBusId(), e.getMessage());
+            }
+        }
     }
 
     /**
-     * Welfare summary for staff
+     * Core calculation per bus — Encapsulation: formula is private.
+     *
+     * Formula:
+     *   grossRevenue  = SUM(daily_revenue.total_revenue for month)
+     *   totalFuel     = SUM(daily_fuel_expense.fuel_amount for month)
+     *   maintenance   = bus_maintenance_config.monthly_amount
+     *   salaries      = SUM(staff.base_salary) for staff assigned this month
+     *   netProfit     = grossRevenue - totalFuel - maintenance - salaries
+     *   driverWelfare = netProfit * 3%    (Polymorphism: driver rate)
+     *   condWelfare   = netProfit * 2%    (Polymorphism: conductor rate)
      */
-    @Override
-    public WelfareSummaryDTO getWelfareSummary(UUID staffId) {
+    private void processBusWelfare(Bus bus, int month, int year) {
+        // Step 1: Gross revenue from ticket sales this month
+        BigDecimal grossRevenue = dailyRevenueRepo
+                .sumRevenueForBusInMonth(bus.getBusId(), month, year);
+        grossRevenue = nullSafe(grossRevenue);
 
-        Staff staff = staffRepository.findById(staffId)
-                .orElseThrow(() -> new RuntimeException("Staff not found"));
+        // Step 2: Total fuel cost for the month
+        BigDecimal totalFuel = fuelRepo
+                .sumFuelForBusInMonth(bus.getBusId(), month, year);
+        totalFuel = nullSafe(totalFuel);
 
-        List<WelfareRecord> records =
-                welfareRecordRepository.findByStaffUserIdOrderByRecordDateDesc(staffId);
+        // Step 3: Fixed monthly maintenance amount (set by owner)
+        BigDecimal maintenance = maintenanceRepo.findByBus(bus)
+                .map(BusMaintenanceConfig::getMonthlyAmount)
+                .orElse(BigDecimal.ZERO);
 
-        BigDecimal totalWelfare =
-                welfareRecordRepository.calculateTotalWelfare(staffId);
+        // Step 4: Sum of base salaries of staff currently assigned to this bus
+        List<StaffBusAssignment> assignments =
+                assignmentRepo.findCurrentAssignmentsByBus(bus.getBusId());
 
-        BigDecimal pending = records.stream()
-                .filter(r -> r.getStatus() == WelfareStatus.PENDING)
-                .map(WelfareRecord::getWelfareAmount)
+        BigDecimal totalSalaries = assignments.stream()
+                .map(a -> nullSafe(a.getStaff().getBaseSalary()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal approved = records.stream()
-                .filter(r -> r.getStatus() == WelfareStatus.APPROVED)
-                .map(WelfareRecord::getWelfareAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        // Step 5: Net profit
+        BigDecimal netProfit = grossRevenue
+                .subtract(totalFuel)
+                .subtract(maintenance)
+                .subtract(totalSalaries);
 
-        BigDecimal paid = records.stream()
-                .filter(r -> r.getStatus() == WelfareStatus.PAID)
-                .map(WelfareRecord::getWelfareAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        // Prevent negative welfare (protect against loss months)
+        if (netProfit.compareTo(BigDecimal.ZERO) < 0) {
+            netProfit = BigDecimal.ZERO;
+        }
 
-        WelfareSummaryDTO summary = new WelfareSummaryDTO();
-        summary.setStaffId(staff.getUserId());
-        summary.setStaffName(staff.getFullName());
-        summary.setEmployeeId(staff.getEmployeeId());
-        summary.setTotalWelfareAmount(totalWelfare != null ? totalWelfare : BigDecimal.ZERO);
-        summary.setPendingWelfareAmount(pending);
-        summary.setApprovedWelfareAmount(approved);
-        summary.setPaidWelfareAmount(paid);
-        summary.setTotalRecords(records.size());
+        // Step 6: Welfare per staff type — Polymorphism in action
+        BigDecimal driverWelfare    = BigDecimal.ZERO;
+        BigDecimal conductorWelfare = BigDecimal.ZERO;
+        long driverCount    = assignments.stream().filter(a -> a.getStaff().getStaffType() == StaffType.driver).count();
+        long conductorCount = assignments.stream().filter(a -> a.getStaff().getStaffType() == StaffType.conductor).count();
 
-        return summary;
+        if (driverCount > 0) {
+            // Total driver welfare pool ÷ number of drivers
+            BigDecimal totalDriverPool = netProfit.multiply(StaffType.driver.getWelfareRate());
+            driverWelfare = totalDriverPool.divide(BigDecimal.valueOf(driverCount), 2, java.math.RoundingMode.HALF_UP);
+        }
+        if (conductorCount > 0) {
+            BigDecimal totalConductorPool = netProfit.multiply(StaffType.conductor.getWelfareRate());
+            conductorWelfare = totalConductorPool.divide(BigDecimal.valueOf(conductorCount), 2, java.math.RoundingMode.HALF_UP);
+        }
+
+        // Step 7: Save monthly summary
+        MonthlyRevenueSummary summary = monthlyRepo
+                .findByBus_BusIdAndSummaryMonthAndSummaryYear(bus.getBusId(), month, year)
+                .orElse(MonthlyRevenueSummary.builder().bus(bus).owner(bus.getOwner())
+                        .summaryMonth(month).summaryYear(year).build());
+
+        final BigDecimal finalNetProfit = netProfit;
+        final BigDecimal finalDriverWelfare = driverWelfare;
+        final BigDecimal finalConductorWelfare = conductorWelfare;
+
+        summary.setGrossRevenue(grossRevenue);
+        summary.setTotalFuelCost(totalFuel);
+        summary.setMaintenanceCost(maintenance);
+        summary.setTotalStaffSalaries(totalSalaries);
+        summary.setNetProfit(finalNetProfit);
+        summary.setDriverWelfareAmount(finalDriverWelfare.multiply(BigDecimal.valueOf(driverCount)));
+        summary.setConductorWelfareAmount(finalConductorWelfare.multiply(BigDecimal.valueOf(conductorCount)));
+        summary.setIsFinalized(true);
+        monthlyRepo.save(summary);
+
+        // Step 8: Distribute welfare to each staff member's balance
+        for (StaffBusAssignment assignment : assignments) {
+            Staff staff = assignment.getStaff();
+            // Polymorphism: each staff type gets its own rate-derived amount
+            BigDecimal amount = staff.getStaffType() == StaffType.driver ? driverWelfare : conductorWelfare;
+            saveWelfareBalance(staff, bus, month, year, amount);
+        }
+
+        log.info("Bus {} — Net: {}, Driver welfare: {}, Conductor welfare: {}",
+                bus.getBusNumber(), finalNetProfit, finalDriverWelfare, finalConductorWelfare);
+    }
+
+    /** Saves or updates a staff member's welfare balance and cumulative total */
+    private void saveWelfareBalance(Staff staff, Bus bus, int month, int year, BigDecimal amount) {
+        // Get previous cumulative balance (from last month's record)
+        BigDecimal prevCumulative = welfareRepo
+                .findLatestCumulativeBalance(staff.getStaffId(), month, year)
+                .orElse(BigDecimal.ZERO);
+
+        StaffWelfareBalance balance = welfareRepo
+                .findByStaffAndMonth(staff.getStaffId(), month, year)
+                .orElse(StaffWelfareBalance.builder().staff(staff).bus(bus)
+                        .balanceMonth(month).balanceYear(year).build());
+
+        balance.setWelfareAmount(amount);
+        balance.setCumulativeBalance(prevCumulative.add(amount));
+        welfareRepo.save(balance);
     }
 
     @Override
-    public WelfareRecordDTO approveWelfareRecord(Integer recordId) {
-
-        WelfareRecord record = welfareRecordRepository.findById(recordId)
-                .orElseThrow(() -> new RuntimeException("Welfare record not found"));
-
-        record.approve();
-
-        WelfareRecord updated = welfareRecordRepository.save(record);
-
-        return convertToDTO(updated);
+    public List<StaffProfileDTO> getStaffWelfareSummary(Integer ownerId, int month, int year) {
+        // Delegate to staff management service — returns list with welfare populated
+        return welfareRepo.findByOwnerAndMonth(ownerId, month, year)
+                .stream()
+                .map(b -> StaffProfileDTO.builder()
+                        .staffId(b.getStaff().getStaffId())
+                        .fullName(b.getStaff().getUser().getFullName())
+                        .staffType(b.getStaff().getStaffType().name())
+                        .baseSalary(b.getStaff().getBaseSalary())
+                        .welfareBalanceThisMonth(b.getWelfareAmount())
+                        .cumulativeWelfareBalance(b.getCumulativeBalance())
+                        .build())
+                .collect(Collectors.toList());
     }
 
-    @Override
-    public WelfareRecordDTO rejectWelfareRecord(Integer recordId) {
-
-        WelfareRecord record = welfareRecordRepository.findById(recordId)
-                .orElseThrow(() -> new RuntimeException("Welfare record not found"));
-
-        record.reject();
-
-        WelfareRecord updated = welfareRecordRepository.save(record);
-
-        return convertToDTO(updated);
-    }
-
-    @Override
-    public void deleteWelfareRecord(Integer recordId) {
-        welfareRecordRepository.deleteById(recordId);
-    }
-
-    /**
-     * Convert entity → DTO
-     */
-    private WelfareRecordDTO convertToDTO(WelfareRecord record) {
-
-        WelfareRecordDTO dto = new WelfareRecordDTO();
-
-        dto.setRecordId(record.getRecordId());
-        dto.setBusId(record.getBus().getBusId());
-        dto.setBusNumber(record.getBus().getBusNumber());
-
-        dto.setStaffId(record.getStaff().getUserId());
-        dto.setStaffName(record.getStaff().getFullName());
-        dto.setEmployeeId(record.getStaff().getEmployeeId());
-
-        dto.setRecordDate(record.getRecordDate());
-        dto.setDailyRevenue(record.getDailyRevenue());
-        dto.setFuelCost(record.getFuelCost());
-        dto.setMaintenanceCost(record.getMaintenanceCost());
-        dto.setWages(record.getWages());
-
-        dto.setTotalExpenses(record.getTotalExpenses());
-        dto.setDailyProfit(record.getDailyProfit());
-
-        dto.setWelfarePercentage(record.getWelfarePercentage());
-        dto.setWelfareAmount(record.getWelfareAmount());
-
-        dto.setStaffType(record.getStaffType());
-        dto.setStatus(record.getStatus());
-
-        return dto;
+    // Encapsulation: null-safety helper is private
+    private BigDecimal nullSafe(BigDecimal val) {
+        return val != null ? val : BigDecimal.ZERO;
     }
 }

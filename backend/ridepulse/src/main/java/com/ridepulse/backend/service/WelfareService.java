@@ -1,38 +1,18 @@
 package com.ridepulse.backend.service;
 
-import com.ridepulse.backend.dto.CreateWelfareRecordRequest;
-import com.ridepulse.backend.dto.WelfareRecordDTO;
-import com.ridepulse.backend.dto.WelfareSummaryDTO;
-import com.ridepulse.backend.model.WelfareStatus;
-import java.time.LocalDate;
+import com.ridepulse.backend.dto.StaffProfileDTO;
 import java.util.List;
-import java.util.UUID;
 
 /**
- * Welfare Service Interface
- *
- * ABSTRACTION (OOP Concept):
- * Defines contract for welfare management operations
+ * OOP Abstraction: Welfare calculation contract.
+ * Impl uses StaffType.getWelfareRate() — Polymorphism.
  */
 public interface WelfareService {
+    /**
+     * Called by @Scheduled job on the 1st of every month.
+     * Calculates and persists welfare for all staff per bus for prior month.
+     */
+    void processMonthlyWelfare(int month, int year);
 
-    WelfareRecordDTO createWelfareRecord(CreateWelfareRecordRequest request);
-
-    WelfareRecordDTO getWelfareRecordById(Integer recordId);
-
-    List<WelfareRecordDTO> getWelfareRecordsByStaff(UUID staffId);
-
-    List<WelfareRecordDTO> getWelfareRecordsByBus(Integer busId);
-
-    List<WelfareRecordDTO> getWelfareRecordsByDateRange(LocalDate startDate, LocalDate endDate);
-
-    List<WelfareRecordDTO> getWelfareRecordsByStatus(WelfareStatus status);
-
-    WelfareSummaryDTO getWelfareSummary(UUID staffId);
-
-    WelfareRecordDTO approveWelfareRecord(Integer recordId);
-
-    WelfareRecordDTO rejectWelfareRecord(Integer recordId);
-
-    void deleteWelfareRecord(Integer recordId);
+    List<StaffProfileDTO> getStaffWelfareSummary(Integer ownerId, int month, int year);
 }

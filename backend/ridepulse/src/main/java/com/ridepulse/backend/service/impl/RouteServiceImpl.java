@@ -1,61 +1,64 @@
 package com.ridepulse.backend.service.impl;
 
-import com.ridepulse.backend.model.Route;
-import com.ridepulse.backend.repository.RouteRepository;
+import com.ridepulse.backend.dto.*;
+import com.ridepulse.backend.entity.*;
+import com.ridepulse.backend.repository.*;
 import com.ridepulse.backend.service.RouteService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class RouteServiceImpl implements RouteService {
 
-    private final RouteRepository routeRepository;
+    private final RouteRepository     routeRepo;
+    private final RouteStopRepository stopRepo;
 
     @Override
-    public Route createRoute(Route route) {
-        return routeRepository.save(route);
+    public List<RouteDropdownDTO> getAllActiveRoutes() {
+        return routeRepo.findByIsActiveTrueOrderByRouteNumber().stream()
+                .map(r -> RouteDropdownDTO.builder()
+                        .routeId(r.getRouteId())
+                        .routeNumber(r.getRouteNumber())
+                        .routeName(r.getRouteName())
+                        .startLocation(r.getStartLocation())
+                        .endLocation(r.getEndLocation())
+                        .baseFare(r.getBaseFare())
+                        .totalDistanceKm(r.getTotalDistanceKm() != null
+                                ? r.getTotalDistanceKm().doubleValue() : null)
+                        .build())
+                .collect(Collectors.toList());
     }
 
     @Override
-    public Optional<Route> getRouteById(Integer routeId) {
-        return routeRepository.findById(routeId);
-    }
-
-    @Override
-    public List<Route> getAllRoutes() {
-        return routeRepository.findAll();
-    }
-
-    @Override
-    public List<Route> getActiveRoutes() {
-        return routeRepository.findByIsActiveTrue();
-    }
-
-    @Override
-    public Route updateRoute(Integer routeId, Route updatedRoute) {
-        return routeRepository.findById(routeId)
-                .map(existing -> {
-                    existing.setRouteName(updatedRoute.getRouteName());
-                    existing.setBaseFare(updatedRoute.getBaseFare());
-                    return routeRepository.save(existing);
-                })
+    public RouteDetailDTO getRouteById(Integer routeId) {
+        Route route = routeRepo.findById(routeId)
                 .orElseThrow(() -> new RuntimeException("Route not found"));
-    }
 
-    @Override
-    public void deleteRoute(Integer routeId) {
-        routeRepository.deleteById(routeId);
-    }
+        List<RouteStopDTO> stops = stopRepo.findByRouteOrderByStopSequence(route)
+                .stream()
+                .map(s -> RouteStopDTO.builder()
+                        .stopId(s.getStopId())
+                        .stopName(s.getStopName())
+                        .stopSequence(s.getStopSequence())
+                        .latitude(s.getLatitude().doubleValue())
+                        .longitude(s.getLongitude().doubleValue())
+                        .build())
+                .collect(Collectors.toList());
 
-    @Override
-    public Double calculateETA(Integer routeId) {
-        return routeRepository.findById(routeId)
-                .map(route -> route.calculateETA().doubleValue())
-                .orElseThrow(() -> new RuntimeException("Route not found"));
+        return RouteDetailDTO.builder()
+                .routeId(route.getRouteId())
+                .routeNumber(route.getRouteNumber())
+                .routeName(route.getRouteName())
+                .startLocation(route.getStartLocation())
+                .endLocation(route.getEndLocation())
+                .baseFare(route.getBaseFare())
+                .totalDistanceKm(route.getTotalDistanceKm() != null
+                        ? route.getTotalDistanceKm().doubleValue() : null)
+                .isActive(route.getIsActive())
+                .stops(stops)
+                .build();
     }
 }

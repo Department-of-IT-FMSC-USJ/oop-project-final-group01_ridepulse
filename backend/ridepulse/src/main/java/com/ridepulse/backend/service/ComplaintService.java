@@ -1,49 +1,46 @@
 package com.ridepulse.backend.service;
 
-import com.ridepulse.backend.dto.ComplaintDTO;
-import com.ridepulse.backend.dto.CreateComplaintRequest;
-import com.ridepulse.backend.dto.UpdateComplaintRequest;
-import com.ridepulse.backend.model.ComplaintCategory;
-import com.ridepulse.backend.model.ComplaintStatus;
-import java.time.LocalDateTime;
+// ============================================================
+// ComplaintService.java — interface
+// OOP Abstraction: defines the complaint contract for all roles.
+//     Controllers depend only on this interface.
+// ============================================================
+
+import com.ridepulse.backend.dto.*;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
-/**
- * Complaint Service Interface
- */
 public interface ComplaintService {
 
-    ComplaintDTO createComplaint(CreateComplaintRequest request);
+    // ── Passenger operations ─────────────────────────────────
 
-    ComplaintDTO getComplaintById(Integer complaintId);
+    /** Passenger submits a new complaint */
+    ComplaintDetailDTO submitComplaint(SubmitComplaintRequest request, UUID passengerId);
 
-    ComplaintDTO getComplaintByNumber(String complaintNumber);
+    /** Passenger views all their own complaints, with authority feedback */
+    List<ComplaintSummaryDTO> getMyComplaints(UUID passengerId);
 
-    List<ComplaintDTO> getComplaintsByPassenger(UUID passengerId);
+    /** Passenger views full detail of one complaint — includes feedback */
+    ComplaintDetailDTO getComplaintDetail(Integer complaintId, UUID passengerId);
 
-    List<ComplaintDTO> getComplaintsByBus(Integer busId);
+    // ── Authority operations ─────────────────────────────────
 
-    List<ComplaintDTO> getComplaintsByStatus(ComplaintStatus status);
+    /**
+     * Authority views all complaints.
+     * Polymorphism: both status and category are optional filters.
+     * Pass null to skip that filter.
+     */
+    List<ComplaintSummaryDTO> getAllComplaints(String status, String category);
 
-    List<ComplaintDTO> getComplaintsByCategory(ComplaintCategory category);
+    /** Authority views full detail of any complaint */
+    ComplaintDetailDTO getComplaintDetailForAuthority(Integer complaintId);
 
-    List<ComplaintDTO> getComplaintsAssignedTo(UUID authorityId);
+    /**
+     * Authority makes a decision: resolve / reject / mark under_review.
+     * Writes resolutionNote (internal) + authorityFeedback (shown to passenger).
+     */
+    ComplaintDetailDTO makeDecision(AuthorityDecisionRequest request, UUID authorityUserId);
 
-    List<ComplaintDTO> getAllComplaints();
-
-    List<ComplaintDTO> getUnresolvedComplaints();
-
-    ComplaintDTO updateComplaint(Integer complaintId, UpdateComplaintRequest request);
-
-    ComplaintDTO assignComplaint(Integer complaintId, UUID authorityId);
-
-    ComplaintDTO resolveComplaint(Integer complaintId, String resolutionNotes);
-
-    ComplaintDTO rejectComplaint(Integer complaintId, String reason);
-
-    void deleteComplaint(Integer complaintId);
-
-    Map<ComplaintCategory, Long> getComplaintStatistics();
+    /** Authority dashboard stats */
+    ComplaintStatsDTO getStats();
 }

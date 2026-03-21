@@ -1,20 +1,11 @@
 package com.ridepulse.backend.service;
 
-import com.ridepulse.backend.dto.AuthResponse;
-import com.ridepulse.backend.dto.LoginRequest;
-import com.ridepulse.backend.dto.RegisterRequest;
+import com.ridepulse.backend.dto.auth.*;
 
-/**
- * ABSTRACTION:
- * Interface defining authentication operations
- */
 public interface AuthService {
-
-    AuthResponse register(RegisterRequest request);
-
     AuthResponse login(LoginRequest request);
-
-    void logout(String token);
-
+    AuthResponse registerPassenger(RegisterPassengerRequest request);
+    AuthResponse registerBusOwner(RegisterBusOwnerRequest request);
+    AuthResponse registerAuthority(RegisterAuthorityRequest request);
+    AuthResponse registerStaff(RegisterStaffRequest request, Integer ownerId);
 }
-

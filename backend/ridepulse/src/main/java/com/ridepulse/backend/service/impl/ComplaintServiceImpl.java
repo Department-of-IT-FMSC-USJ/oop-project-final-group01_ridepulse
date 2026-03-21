@@ -1,271 +1,263 @@
 package com.ridepulse.backend.service.impl;
 
-import com.ridepulse.backend.dto.ComplaintDTO;
-import com.ridepulse.backend.dto.CreateComplaintRequest;
-import com.ridepulse.backend.dto.UpdateComplaintRequest;
-import com.ridepulse.backend.model.*;
+
+// ============================================================
+// ComplaintServiceImpl.java
+// OOP Encapsulation: all complaint logic is hidden here.
+//     Polymorphism: makeDecision() resolves the new status
+//     from the action string — callers never switch on status.
+//     Abstraction: getStats() hides 7 separate count queries.
+// ============================================================
+
+import com.ridepulse.backend.dto.*;
+import com.ridepulse.backend.entity.*;
 import com.ridepulse.backend.repository.*;
 import com.ridepulse.backend.service.ComplaintService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.*;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
-/**
- * Complaint Service Implementation
- *
- * ENCAPSULATION (OOP Concept):
- * Encapsulates complaint management business logic
- */
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class ComplaintServiceImpl implements ComplaintService {
 
-    private final ComplaintRepository complaintRepository;
-    private final UserRepository userRepository;
-    private final BusRepository busRepository;
-    private final StaffRepository staffRepository;
+    // Encapsulation: all dependencies are private and injected
+    private final ComplaintRepository complaintRepo;
+    private final UserRepository      userRepo;
+    private final BusRepository       busRepo;
+    private final BusTripRepository   tripRepo;
 
+    private static final DateTimeFormatter FMT =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+
+    // ── Passenger operations ─────────────────────────────────
+
+    /**
+     * Passenger submits a new complaint.
+     * OOP Encapsulation: complaint entity is built and saved here —
+     * the controller just passes the request and gets back a DTO.
+     */
     @Override
-    public ComplaintDTO createComplaint(CreateComplaintRequest request) {
-        // Validate passenger exists
-        User passenger = userRepository.findById(request.getPassengerId())
+    @Transactional
+    public ComplaintDetailDTO submitComplaint(
+            SubmitComplaintRequest req, UUID passengerId) {
+
+        User passenger = userRepo.findById(passengerId)
                 .orElseThrow(() -> new RuntimeException("Passenger not found"));
 
-        // Create new complaint
-        Complaint complaint = new Complaint();
-        complaint.setPassenger(passenger);
-        complaint.setCategory(request.getCategory());
-        complaint.setDescription(request.getDescription());
-        complaint.setPhotoUrl(request.getPhotoUrl());
+        // Resolve optional associations
+        Bus bus = req.getBusId() != null
+                ? busRepo.findById(req.getBusId()).orElse(null)
+                : null;
 
-        // Set bus if provided
-        if (request.getBusId() != null) {
-            Bus bus = busRepository.findById(request.getBusId())
-                    .orElseThrow(() -> new RuntimeException("Bus not found"));
-            complaint.setBus(bus);
-        }
+        BusTrip trip = req.getTripId() != null
+                ? tripRepo.findById(req.getTripId()).orElse(null)
+                : null;
 
-        // Set staff if provided
-        if (request.getStaffId() != null) {
-            Staff staff = staffRepository.findById(request.getStaffId())
-                    .orElseThrow(() -> new RuntimeException("Staff not found"));
-            complaint.setStaff(staff);
-        }
+        // Auto-assign priority based on category — Polymorphism
+        String priority = resolvePriority(req.getCategory());
 
-        // Auto-assign priority based on category
-        complaint.setPriority(determinePriority(request.getCategory()));
+        Complaint complaint = Complaint.builder()
+                .passenger(passenger)
+                .bus(bus)
+                .trip(trip)
+                .category(req.getCategory())
+                .description(req.getDescription())
+                .photoUrl(req.getPhotoUrl())
+                .priority(priority)
+                .status("submitted")
+                .submittedAt(LocalDateTime.now())
+                .build();
 
-        // Save to database
-        Complaint saved = complaintRepository.save(complaint);
-
-        return convertToDTO(saved);
+        complaintRepo.save(complaint);
+        return toDetailDTO(complaint, false);
     }
 
+    /** Returns all complaints the passenger filed, with authority feedback. */
     @Override
-    public ComplaintDTO getComplaintById(Integer complaintId) {
-        Complaint complaint = complaintRepository.findById(complaintId)
-                .orElseThrow(() -> new RuntimeException("Complaint not found"));
-
-        return convertToDTO(complaint);
-    }
-
-    @Override
-    public ComplaintDTO getComplaintByNumber(String complaintNumber) {
-        Complaint complaint = complaintRepository.findByComplaintNumber(complaintNumber)
-                .orElseThrow(() -> new RuntimeException("Complaint not found"));
-
-        return convertToDTO(complaint);
-    }
-
-    @Override
-    public List<ComplaintDTO> getComplaintsByPassenger(UUID passengerId) {
-        return complaintRepository.findByPassengerUserIdOrderBySubmittedAtDesc(passengerId)
+    public List<ComplaintSummaryDTO> getMyComplaints(UUID passengerId) {
+        return complaintRepo
+                .findByPassenger_UserIdOrderBySubmittedAtDesc(passengerId)
                 .stream()
-                .map(this::convertToDTO)
+                .map(c -> toSummaryDTO(c))
                 .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<ComplaintDTO> getComplaintsByBus(Integer busId) {
-        return complaintRepository.findByBusBusIdOrderBySubmittedAtDesc(busId)
-                .stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<ComplaintDTO> getComplaintsByStatus(ComplaintStatus status) {
-        return complaintRepository.findByStatusOrderBySubmittedAtDesc(status)
-                .stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<ComplaintDTO> getComplaintsByCategory(ComplaintCategory category) {
-        return complaintRepository.findByCategoryOrderBySubmittedAtDesc(category)
-                .stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<ComplaintDTO> getComplaintsAssignedTo(UUID authorityId) {
-        return complaintRepository.findByAssignedToUserIdOrderBySubmittedAtDesc(authorityId)
-                .stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<ComplaintDTO> getAllComplaints() {
-        return complaintRepository.findAll()
-                .stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<ComplaintDTO> getUnresolvedComplaints() {
-        return complaintRepository.findUnresolvedComplaints()
-                .stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public ComplaintDTO updateComplaint(Integer complaintId, UpdateComplaintRequest request) {
-        Complaint complaint = complaintRepository.findById(complaintId)
-                .orElseThrow(() -> new RuntimeException("Complaint not found"));
-
-        if (request.getStatus() != null) {
-            complaint.setStatus(request.getStatus());
-        }
-
-        if (request.getPriority() != null) {
-            complaint.setPriority(request.getPriority());
-        }
-
-        if (request.getAssignedTo() != null) {
-            User authority = userRepository.findById(request.getAssignedTo())
-                    .orElseThrow(() -> new RuntimeException("Authority user not found"));
-            complaint.assignTo(authority);
-        }
-
-        if (request.getResolutionNotes() != null) {
-            complaint.setResolutionNotes(request.getResolutionNotes());
-        }
-
-        Complaint updated = complaintRepository.save(complaint);
-
-        return convertToDTO(updated);
-    }
-
-    @Override
-    public ComplaintDTO assignComplaint(Integer complaintId, UUID authorityId) {
-        Complaint complaint = complaintRepository.findById(complaintId)
-                .orElseThrow(() -> new RuntimeException("Complaint not found"));
-
-        User authority = userRepository.findById(authorityId)
-                .orElseThrow(() -> new RuntimeException("Authority user not found"));
-
-        complaint.assignTo(authority);
-        Complaint updated = complaintRepository.save(complaint);
-
-        return convertToDTO(updated);
-    }
-
-    @Override
-    public ComplaintDTO resolveComplaint(Integer complaintId, String resolutionNotes) {
-        Complaint complaint = complaintRepository.findById(complaintId)
-                .orElseThrow(() -> new RuntimeException("Complaint not found"));
-
-        complaint.resolve(resolutionNotes);
-        Complaint updated = complaintRepository.save(complaint);
-
-        return convertToDTO(updated);
-    }
-
-    @Override
-    public ComplaintDTO rejectComplaint(Integer complaintId, String reason) {
-        Complaint complaint = complaintRepository.findById(complaintId)
-                .orElseThrow(() -> new RuntimeException("Complaint not found"));
-
-        complaint.reject(reason);
-        Complaint updated = complaintRepository.save(complaint);
-
-        return convertToDTO(updated);
-    }
-
-    @Override
-    public void deleteComplaint(Integer complaintId) {
-        complaintRepository.deleteById(complaintId);
-    }
-
-    @Override
-    public Map<ComplaintCategory, Long> getComplaintStatistics() {
-        List<Object[]> stats = complaintRepository.getComplaintStatisticsByCategory();
-
-        Map<ComplaintCategory, Long> result = new HashMap<>();
-        for (Object[] stat : stats) {
-            result.put((ComplaintCategory) stat[0], (Long) stat[1]);
-        }
-
-        return result;
     }
 
     /**
-     * ENCAPSULATION - Private helper methods
+     * Passenger views detail of their own complaint.
+     * Security: validates the complaint belongs to this passenger.
      */
+    @Override
+    public ComplaintDetailDTO getComplaintDetail(
+            Integer complaintId, UUID passengerId) {
 
-    private ComplaintPriority determinePriority(ComplaintCategory category) {
+        Complaint c = findComplaint(complaintId);
+
+        // Security: passenger can only view their own complaints
+        if (!c.getPassenger().getUserId().equals(passengerId)) {
+            throw new RuntimeException("Access denied");
+        }
+        return toDetailDTO(c, false);  // false = hide resolutionNote from passenger
+    }
+
+    // ── Authority operations ─────────────────────────────────
+
+    /**
+     * Authority views all complaints, optionally filtered.
+     * OOP Polymorphism: filter combination handled without caller needing
+     * to know which query method is invoked.
+     */
+    @Override
+    public List<ComplaintSummaryDTO> getAllComplaints(
+            String status, String category) {
+
+        List<Complaint> complaints;
+
+        // Polymorphism: query selection driven by which filters are present
+        if (status != null && category != null) {
+            complaints = complaintRepo
+                    .findByStatusAndCategoryOrderBySubmittedAtDesc(status, category);
+        } else if (status != null) {
+            complaints = complaintRepo.findByStatusOrderBySubmittedAtDesc(status);
+        } else if (category != null) {
+            complaints = complaintRepo.findByCategoryOrderBySubmittedAtDesc(category);
+        } else {
+            complaints = complaintRepo.findAllByOrderBySubmittedAtDesc();
+        }
+
+        return complaints.stream()
+                .map(c -> toSummaryDTO(c))
+                .collect(Collectors.toList());
+    }
+
+    /** Authority sees full detail including internal resolution note. */
+    @Override
+    public ComplaintDetailDTO getComplaintDetailForAuthority(Integer complaintId) {
+        return toDetailDTO(findComplaint(complaintId), true); // true = show resolutionNote
+    }
+
+    /**
+     * Authority makes a decision on a complaint.
+     * OOP Polymorphism: action string resolves to the correct status transition.
+     * The passenger's authorityFeedback is set here — they read it on their end.
+     */
+    @Override
+    @Transactional
+    public ComplaintDetailDTO makeDecision(
+            AuthorityDecisionRequest req, UUID authorityUserId) {
+
+        Complaint complaint = findComplaint(req.getComplaintId());
+
+        User authority = userRepo.findById(authorityUserId)
+                .orElseThrow(() -> new RuntimeException("Authority user not found"));
+
+        // Polymorphism: action → status mapping (Encapsulation: callers don't set status directly)
+        String newStatus = switch (req.getAction()) {
+            case "resolve" -> "resolved";
+            case "reject"  -> "rejected";
+            case "review"  -> "under_review";
+            default        -> throw new RuntimeException("Invalid action: " + req.getAction());
+        };
+
+        // Encapsulation: all mutation goes through the entity
+        complaint.setStatus(newStatus);
+        complaint.setResolutionNote(req.getResolutionNote());
+        complaint.setAuthorityFeedback(req.getAuthorityFeedback()); // passenger reads this
+        complaint.setAssignedTo(authority);
+
+        if ("resolved".equals(newStatus) || "rejected".equals(newStatus)) {
+            complaint.setResolvedAt(LocalDateTime.now());
+        }
+
+        complaintRepo.save(complaint);
+        return toDetailDTO(complaint, true);
+    }
+
+    /**
+     * Authority dashboard statistics.
+     * OOP Abstraction: hides 9 separate count queries.
+     */
+    @Override
+    public ComplaintStatsDTO getStats() {
+        return ComplaintStatsDTO.builder()
+                .totalComplaints(complaintRepo.count())
+                .submitted(complaintRepo.countByStatus("submitted"))
+                .underReview(complaintRepo.countByStatus("under_review"))
+                .resolved(complaintRepo.countByStatus("resolved"))
+                .rejected(complaintRepo.countByStatus("rejected"))
+                .crowdingCount(complaintRepo.countByCategory("crowding"))
+                .driverBehaviorCount(complaintRepo.countByCategory("driver_behavior"))
+                .delayCount(complaintRepo.countByCategory("delay"))
+                .cleanlinessCount(complaintRepo.countByCategory("cleanliness"))
+                .safetyCount(complaintRepo.countByCategory("safety"))
+                .otherCount(complaintRepo.countByCategory("other"))
+                .build();
+    }
+
+    // ── Private helpers (Encapsulation: hidden from all callers) ─────────
+
+    private Complaint findComplaint(Integer id) {
+        return complaintRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Complaint not found: " + id));
+    }
+
+    /**
+     * Polymorphism: safety complaints get high priority automatically,
+     * driver_behavior gets medium, delay/crowding get low.
+     */
+    private String resolvePriority(String category) {
         return switch (category) {
-            case DISRUPTIVE_DRIVING, FAST_DRIVING -> ComplaintPriority.HIGH;
-            case POOR_MAINTENANCE, OVERCROWDED -> ComplaintPriority.MEDIUM;
-            default -> ComplaintPriority.LOW;
+            case "safety"           -> "high";
+            case "driver_behavior"  -> "high";
+            case "delay"            -> "medium";
+            case "crowding"         -> "medium";
+            default                 -> "low";
         };
     }
 
-    private ComplaintDTO convertToDTO(Complaint complaint) {
-        ComplaintDTO dto = new ComplaintDTO();
-        dto.setComplaintId(complaint.getComplaintId());
-        dto.setComplaintNumber(complaint.getComplaintNumber());
+    private ComplaintSummaryDTO toSummaryDTO(Complaint c) {
+        return ComplaintSummaryDTO.builder()
+                .complaintId(c.getComplaintId())
+                .passengerName(c.getPassenger().getFullName())
+                .busNumber(c.getBus() != null ? c.getBus().getBusNumber() : "N/A")
+                .category(c.getCategory())
+                .description(c.getDescription())
+                .photoUrl(c.getPhotoUrl())
+                .priority(c.getPriority())
+                .status(c.getStatus())
+                .authorityFeedback(c.getAuthorityFeedback()) // null until authority acts
+                .submittedAt(c.getSubmittedAt() != null ? c.getSubmittedAt().format(FMT) : null)
+                .resolvedAt(c.getResolvedAt() != null ? c.getResolvedAt().format(FMT) : null)
+                .build();
+    }
 
-        if (complaint.getPassenger() != null) {
-            dto.setPassengerId(complaint.getPassenger().getUserId());
-            dto.setPassengerName(complaint.getPassenger().getFullName());
-            dto.setPassengerEmail(complaint.getPassenger().getEmail());
-        }
-
-        if (complaint.getBus() != null) {
-            dto.setBusId(complaint.getBus().getBusId());
-            dto.setBusNumber(complaint.getBus().getBusNumber());
-        }
-
-        if (complaint.getStaff() != null) {
-            dto.setStaffId(complaint.getStaff().getUserId());
-            dto.setStaffName(complaint.getStaff().getFullName());
-        }
-
-        dto.setCategory(complaint.getCategory());
-        dto.setCategoryDescription(complaint.getCategory().getDescription());
-        dto.setDescription(complaint.getDescription());
-        dto.setPhotoUrl(complaint.getPhotoUrl());
-        dto.setPriority(complaint.getPriority());
-        dto.setStatus(complaint.getStatus());
-
-        if (complaint.getAssignedTo() != null) {
-            dto.setAssignedToId(complaint.getAssignedTo().getUserId());
-            dto.setAssignedToName(complaint.getAssignedTo().getFullName());
-        }
-
-        dto.setResolutionNotes(complaint.getResolutionNotes());
-        dto.setSubmittedAt(complaint.getSubmittedAt());
-        dto.setResolvedAt(complaint.getResolvedAt());
-
-        return dto;
+    private ComplaintDetailDTO toDetailDTO(Complaint c, boolean includeResolutionNote) {
+        return ComplaintDetailDTO.builder()
+                .complaintId(c.getComplaintId())
+                .passengerName(c.getPassenger().getFullName())
+                .passengerPhone(c.getPassenger().getPhone())
+                .busNumber(c.getBus() != null ? c.getBus().getBusNumber() : "N/A")
+                .routeName(c.getBus() != null && c.getBus().getRoute() != null
+                        ? c.getBus().getRoute().getRouteName() : "N/A")
+                .tripId(c.getTrip() != null ? c.getTrip().getTripId() : null)
+                .category(c.getCategory())
+                .description(c.getDescription())
+                .photoUrl(c.getPhotoUrl())
+                .priority(c.getPriority())
+                .status(c.getStatus())
+                .submittedAt(c.getSubmittedAt() != null ? c.getSubmittedAt().format(FMT) : null)
+                // Encapsulation: resolutionNote only shown to authority
+                .resolutionNote(includeResolutionNote ? c.getResolutionNote() : null)
+                .authorityFeedback(c.getAuthorityFeedback())
+                .assignedToName(c.getAssignedTo() != null
+                        ? c.getAssignedTo().getFullName() : "Unassigned")
+                .resolvedAt(c.getResolvedAt() != null ? c.getResolvedAt().format(FMT) : null)
+                .build();
     }
 }

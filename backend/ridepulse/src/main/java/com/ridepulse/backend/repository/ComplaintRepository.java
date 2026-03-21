@@ -1,59 +1,83 @@
 package com.ridepulse.backend.repository;
 
-import com.ridepulse.backend.model.Complaint;
-import com.ridepulse.backend.model.ComplaintCategory;
-import com.ridepulse.backend.model.ComplaintStatus;
+import com.ridepulse.backend.entity.Complaint;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-import java.time.LocalDateTime;
+
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Complaint Repository
+ * OOP Encapsulation: All complaint queries scoped by caller's role.
+ *   Passenger   → sees only their own complaints
+ *   Bus Owner   → sees complaints about their buses only
+ *   Authority   → sees all complaints system-wide with filters
  */
 @Repository
 public interface ComplaintRepository extends JpaRepository<Complaint, Integer> {
 
-    // Find complaint by complaint number
-    Optional<Complaint> findByComplaintNumber(String complaintNumber);
+    // ── Passenger queries ────────────────────────────────────
 
-    // Find complaints by passenger
-    List<Complaint> findByPassengerUserIdOrderBySubmittedAtDesc(UUID passengerId);
+    // Used by: PassengerComplaintController — list my complaints with feedback
+    List<Complaint> findByPassenger_UserIdOrderBySubmittedAtDesc(UUID passengerId);
 
-    // Find complaints by bus
-    List<Complaint> findByBusBusIdOrderBySubmittedAtDesc(Integer busId);
+    // ── Authority queries ────────────────────────────────────
 
-    // Find complaints by status
-    List<Complaint> findByStatusOrderBySubmittedAtDesc(ComplaintStatus status);
+    // Used by: AuthorityComplaintController — all complaints, newest first
+    List<Complaint> findAllByOrderBySubmittedAtDesc();
 
-    // Find complaints by category
-    List<Complaint> findByCategoryOrderBySubmittedAtDesc(ComplaintCategory category);
+    // Used by: AuthorityComplaintController — filter by status
+    List<Complaint> findByStatusOrderBySubmittedAtDesc(String status);
 
-    // Find complaints assigned to authority
-    List<Complaint> findByAssignedToUserIdOrderBySubmittedAtDesc(UUID authorityId);
+    // Used by: AuthorityComplaintController — filter by category
+    List<Complaint> findByCategoryOrderBySubmittedAtDesc(String category);
 
-    // Find complaints by date range
-    List<Complaint> findBySubmittedAtBetweenOrderBySubmittedAtDesc(
-            LocalDateTime startDate,
-            LocalDateTime endDate
-    );
+    // Used by: AuthorityComplaintController — filter by both status + category
+    List<Complaint> findByStatusAndCategoryOrderBySubmittedAtDesc(
+            String status, String category);
 
-    // Count complaints by status
-    Long countByStatus(ComplaintStatus status);
+    // Used by: AuthorityComplaintController — complaints assigned to me
+    @Query("""
+        SELECT c FROM Complaint c
+        WHERE c.assignedTo.userId = :authorityUserId
+        ORDER BY c.submittedAt DESC
+        """)
+    List<Complaint> findAssignedToAuthority(
+            @Param("authorityUserId") UUID authorityUserId);
 
-    // Count complaints by category
-    Long countByCategory(ComplaintCategory category);
+    // Used by: AuthorityComplaintController — dashboard stats
+    long countByStatus(String status);
 
-    // Get unresolved complaints
-    @Query("SELECT c FROM Complaint c WHERE c.status IN ('SUBMITTED', 'UNDER_REVIEW') " +
-            "ORDER BY c.priority DESC, c.submittedAt ASC")
-    List<Complaint> findUnresolvedComplaints();
+    long countByCategory(String category);
 
-    // Get complaint statistics by category
-    @Query("SELECT c.category, COUNT(c) FROM Complaint c GROUP BY c.category")
-    List<Object[]> getComplaintStatisticsByCategory();
+    // ── Bus Owner queries ────────────────────────────────────
+
+    // Used by: BusOwnerDashboardServiceImpl — complaints about owner's buses
+    @Query("""
+        SELECT c FROM Complaint c
+        WHERE c.bus.owner.ownerId = :ownerId
+        ORDER BY c.submittedAt DESC
+        """)
+    List<Complaint> findByOwner(@Param("ownerId") Integer ownerId);
+
+    // Used by: BusOwnerDashboardServiceImpl — filtered by status
+    @Query("""
+        SELECT c FROM Complaint c
+        WHERE c.bus.owner.ownerId = :ownerId
+          AND (:status = 'all' OR c.status = :status)
+        ORDER BY c.submittedAt DESC
+        """)
+    List<Complaint> findByOwnerAndStatus(
+            @Param("ownerId") Integer ownerId,
+            @Param("status") String status);
+
+    // Used by: BusOwnerDashboardServiceImpl — badge count
+    @Query("""
+        SELECT COUNT(c) FROM Complaint c
+        WHERE c.bus.owner.ownerId = :ownerId
+          AND c.status IN ('submitted', 'under_review')
+        """)
+    long countOpenComplaintsByOwner(@Param("ownerId") Integer ownerId);
 }

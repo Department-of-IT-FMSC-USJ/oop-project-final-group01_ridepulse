@@ -1,139 +1,208 @@
 package com.ridepulse.backend.service.impl;
 
-import com.ridepulse.backend.dto.AuthResponse;
-import com.ridepulse.backend.dto.LoginRequest;
-import com.ridepulse.backend.dto.RegisterRequest;
-import com.ridepulse.backend.model.User;
-import com.ridepulse.backend.model.UserRole;
-import com.ridepulse.backend.repository.UserRepository;
+import com.ridepulse.backend.config.*;
+import com.ridepulse.backend.dto.auth.*;
+import com.ridepulse.backend.entity.*;
+import com.ridepulse.backend.repository.*;
 import com.ridepulse.backend.service.AuthService;
-import com.ridepulse.backend.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.authentication.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Authentication service implementation.
- * Handles user registration, login, and token generation.
- */
+import java.time.LocalDate;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class AuthServiceImpl implements AuthService {
 
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final JwtUtil jwtUtil;
-    private final AuthenticationManager authenticationManager;
+    private final UserRepository          userRepo;
+    private final BusOwnerRepository      busOwnerRepo;
+    private final StaffRepository         staffRepo;
+    private final BusRepository           busRepo;
+    private final StaffBusAssignmentRepository assignmentRepo;
+    private final AuthenticationManager   authManager;
+    private final JwtService              jwtService;
+    private final PasswordEncoder         passwordEncoder;
+    private final CustomUserDetailsService userDetailsService;
 
     /**
-     * Register a new user
-     */
-    @Override
-    public AuthResponse register(RegisterRequest request) {
-
-        // Check if email already exists
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already registered");
-        }
-
-        // Create new user entity
-        User user = new User();
-        user.setFullName(request.getFullName());
-        user.setEmail(request.getEmail());
-        user.setPhone(request.getPhone());
-
-        // Encrypt password using BCrypt
-        String hashedPassword = passwordEncoder.encode(request.getPassword());
-        user.setPasswordHash(hashedPassword);
-
-        // Convert role string to enum
-        try {
-            user.setRole(UserRole.valueOf(request.getRole().toUpperCase()));
-        } catch (IllegalArgumentException e) {
-            throw new RuntimeException("Invalid role: " + request.getRole());
-        }
-
-        user.setIsActive(true);
-
-        // Save user in database
-        User savedUser = userRepository.save(user);
-
-        // Generate JWT token
-        String token = jwtUtil.generateToken(
-                savedUser.getEmail(),
-                savedUser.getRole().name()
-        );
-
-        // Return response
-        return new AuthResponse(
-                savedUser.getUserId(),
-                savedUser.getEmail(),
-                savedUser.getFullName(),
-                savedUser.getRole().name(),
-                token
-        );
-    }
-
-    /**
-     * Login user
+     * Login — shared for ALL roles.
+     * OOP Polymorphism: same method handles passenger, driver, conductor,
+     *                   bus_owner, and authority via role claim in JWT.
      */
     @Override
     public AuthResponse login(LoginRequest request) {
+        // Spring Security handles credential validation
+        authManager.authenticate(
+                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
 
-        try {
+        CustomUserDetails userDetails =
+                (CustomUserDetails) userDetailsService.loadUserByUsername(request.getEmail());
 
-            // Authenticate user with Spring Security
-            authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(
-                            request.getEmail(),
-                            request.getPassword()
-                    )
-            );
+        String token = jwtService.generateToken(userDetails);
 
-            // Fetch user from database
-            User user = userRepository.findByEmail(request.getEmail())
-                    .orElseThrow(() -> new RuntimeException("User not found"));
-
-            // Check if account is active
-            if (!Boolean.TRUE.equals(user.getIsActive())) {
-                throw new RuntimeException("Account is inactive");
-            }
-
-            // Generate JWT token
-            String token = jwtUtil.generateToken(
-                    user.getEmail(),
-                    user.getRole().name()
-            );
-
-            // Return authentication response
-            return new AuthResponse(
-                    user.getUserId(),
-                    user.getEmail(),
-                    user.getFullName(),
-                    user.getRole().name(),
-                    token
-            );
-
-        } catch (Exception e) {
-
-            // Print real error in console for debugging
-            e.printStackTrace();
-
-            throw new RuntimeException("Invalid email or password");
+        // Resolve staffId for driver/conductor
+        Integer staffId = null;
+        if ("driver".equals(userDetails.getRole()) || "conductor".equals(userDetails.getRole())) {
+            staffId = staffRepo.findByUserEmail(request.getEmail())
+                    .map(Staff::getStaffId).orElse(null);
         }
+
+        return AuthResponse.builder()
+                .accessToken(token)
+                .role(userDetails.getRole())
+                .fullName(loadFullName(request.getEmail()))
+                .email(request.getEmail())
+                .ownerId(userDetails.getOwnerId())
+                .staffId(staffId)
+                .build();
+    }
+
+    /** Register Passenger — public endpoint */
+    @Override
+    @Transactional
+    public AuthResponse registerPassenger(RegisterPassengerRequest req) {
+        validateEmailUnique(req.getEmail());
+
+        User user = createBaseUser(
+                req.getFullName(), req.getEmail(), req.getPhone(),
+                req.getPassword(), User.UserRole.passenger);
+
+        userRepo.save(user);
+        return buildAuthResponse(user, null, null);
+    }
+
+    /** Register Bus Owner — public endpoint */
+    @Override
+    @Transactional
+    public AuthResponse registerBusOwner(RegisterBusOwnerRequest req) {
+        validateEmailUnique(req.getEmail());
+
+        User user = createBaseUser(
+                req.getFullName(), req.getEmail(), req.getPhone(),
+                req.getPassword(), User.UserRole.bus_owner);
+        userRepo.save(user);
+
+        // Inheritance: BusOwner profile extends User
+        BusOwner owner = BusOwner.builder()
+                .user(user)
+                .businessName(req.getBusinessName())
+                .nicNumber(req.getNicNumber())
+                .address(req.getAddress())
+                .build();
+        busOwnerRepo.save(owner);
+
+        return buildAuthResponse(user, owner.getOwnerId(), null);
+    }
+
+    /** Register Authority — public endpoint (in production: invite-only) */
+    @Override
+    @Transactional
+    public AuthResponse registerAuthority(RegisterAuthorityRequest req) {
+        validateEmailUnique(req.getEmail());
+
+        User user = createBaseUser(
+                req.getFullName(), req.getEmail(), req.getPhone(),
+                req.getPassword(), User.UserRole.authority);
+        userRepo.save(user);
+
+        return buildAuthResponse(user, null, null);
     }
 
     /**
-     * Logout user
-     * For JWT, logout is usually handled client-side
+     * Register Staff (Driver or Conductor) — called by Bus Owner only.
+     * OOP Polymorphism: staffType field determines which fields are required
+     *                   and how the staff entity is configured.
      */
     @Override
-    public void logout(String token) {
-        System.out.println("User logged out");
+    @Transactional
+    public AuthResponse registerStaff(RegisterStaffRequest req, Integer ownerId) {
+        validateEmailUnique(req.getEmail());
+
+        // Polymorphism: map staffType string to UserRole enum
+        User.UserRole userRole = "driver".equals(req.getStaffType())
+                ? User.UserRole.driver
+                : User.UserRole.conductor;
+
+        User user = createBaseUser(
+                req.getFullName(), req.getEmail(), req.getPhone(),
+                req.getPassword(), userRole);
+        userRepo.save(user);
+
+        // Build staff profile — Polymorphism: licenseNumber only for driver
+        Staff staff = Staff.builder()
+                .user(user)
+                .staffType(Staff.StaffType.valueOf(req.getStaffType()))
+                .employeeId(req.getEmployeeId())
+                .dateOfJoining(req.getDateOfJoining() != null
+                        ? req.getDateOfJoining() : LocalDate.now())
+                .licenseNumber(req.getLicenseNumber())       // null for conductor
+                .licenseExpiry(req.getLicenseExpiry())        // null for conductor
+                .baseSalary(req.getBaseSalary())
+                .isActive(true)
+                .build();
+        staffRepo.save(staff);
+
+        // Optionally assign to a bus immediately
+        if (req.getBusId() != null) {
+            Bus bus = busRepo.findById(req.getBusId())
+                    .orElseThrow(() -> new RuntimeException("Bus not found"));
+
+            StaffBusAssignment assignment = StaffBusAssignment.builder()
+                    .staff(staff)
+                    .bus(bus)
+                    .assignedDate(LocalDate.now())
+                    .isCurrent(true)
+                    .build();
+            assignmentRepo.save(assignment);
+        }
+
+        return buildAuthResponse(user, null, staff.getStaffId());
+    }
+
+    // ── Private helpers (Encapsulation: hidden from callers) ──
+
+    private User createBaseUser(String fullName, String email, String phone,
+                                String password, User.UserRole role) {
+        return User.builder()
+                .fullName(fullName)
+                .email(email)
+                .phone(phone)
+                .passwordHash(passwordEncoder.encode(password)) // Encapsulation: raw password encoded
+                .role(role)
+                .isActive(true)
+                .build();
+    }
+
+    private void validateEmailUnique(String email) {
+        if (userRepo.existsByEmail(email)) {
+            throw new RuntimeException("Email already registered: " + email);
+        }
+    }
+
+    private String loadFullName(String email) {
+        return userRepo.findByEmail(email)
+                .map(User::getFullName).orElse("");
+    }
+
+    private AuthResponse buildAuthResponse(User user, Integer ownerId, Integer staffId) {
+        CustomUserDetails details = new CustomUserDetails(user, ownerId, staffId);
+        return AuthResponse.builder()
+                .accessToken(jwtService.generateToken(details))
+                .role(user.getRole().name())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .ownerId(ownerId)
+                .staffId(staffId)
+                .build();
     }
 }
+
+
+// ============================================================
+// FILE: controller/AuthController.java
+// REST endpoints for auth — one endpoint per registration type
+// OOP Encapsulation: hides service details behind clean HTTP API
+// ============================================================

@@ -1,27 +1,25 @@
 package com.ridepulse.backend.repository;
 
-import com.ridepulse.backend.model.RouteStop;
+import com.ridepulse.backend.entity.Route;
+import com.ridepulse.backend.entity.RouteStop;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
 /**
- * RouteStop Repository
+ * OOP Encapsulation: Stop ordering is encapsulated in repository method.
+ * Used by: RouteServiceImpl.getRouteById()
  */
 @Repository
-public interface RouteStopRepository extends JpaRepository<RouteStop, Long> {
+public interface RouteStopRepository extends JpaRepository<RouteStop, Integer> {
 
-    @Query("SELECT rs FROM RouteStop rs WHERE rs.route.routeId = :routeId " +
-            "ORDER BY rs.stopSequence")
-    List<RouteStop> findByRouteIdOrderByStopSequence(@Param("routeId") Long routeId);
+    // Used by: RouteServiceImpl — returns stops in sequence order for map display
+    List<RouteStop> findByRouteOrderByStopSequence(Route route);
 
-    @Query("SELECT rs FROM RouteStop rs WHERE rs.route.routeId = :routeId " +
-            "AND rs.stopSequence = :sequence")
-    RouteStop findByRouteIdAndStopSequence(
-            @Param("routeId") Long routeId,
-            @Param("sequence") Integer sequence
-    );
+    // Used by: RouteServiceImpl — stops for a routeId (when Route entity not in hand)
+    List<RouteStop> findByRoute_RouteIdOrderByStopSequence(Integer routeId);
+
+    // Used by: TicketServiceImpl — validate boarding/alighting stop belongs to route
+    boolean existsByStopIdAndRoute_RouteId(Integer stopId, Integer routeId);
 }
