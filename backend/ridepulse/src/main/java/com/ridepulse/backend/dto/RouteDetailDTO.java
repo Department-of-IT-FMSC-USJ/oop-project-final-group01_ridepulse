@@ -17,3 +17,34 @@ public class RouteDetailDTO {
     private Boolean isActive;
     private List<RouteStopDTO> stops;
 }
+
+
+// ── RosterDetailDTO ─────────────────────────────────────────
+// Conductor's today assignment — bus + route + shift details
+@Data @NoArgsConstructor @AllArgsConstructor @Builder
+public class RosterDetailDTO {
+    private Integer rosterId;
+    private String  dutyDate;
+    private String  shiftStart;
+    private String  shiftEnd;
+    private String  status;          // scheduled | active | completed | cancelled
+
+    // Assigned bus info
+    private Integer busId;
+    private String  busNumber;
+    private String  registrationNumber;
+    private Integer busCapacity;
+
+    // Assigned route info
+    private Integer routeId;
+    private String  routeNumber;
+    private String  routeName;
+    private String  startLocation;
+    private String  endLocation;
+    private Double  baseFare;
+
+    // Active trip (null if no trip started yet)
+    private Integer activeTripId;
+    private String  tripStatus;      // in_progress | completed | null
+}
+

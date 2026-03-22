@@ -106,8 +106,22 @@ final routerProvider = Provider<GoRouter>((ref) {
           builder: (_, __) => const DriverHomeScreen()),
 
       // ── Conductor (Mobile) ─────────────────────────────────
-      GoRoute(path: '/conductor/home',
+      GoRoute(
+          path: '/conductor/home',
           builder: (_, __) => const ConductorHomeScreen()),
+      GoRoute(
+          path: '/conductor/trip',
+          builder: (_, __) => const ConductorTripScreen()),
+      GoRoute(
+          path: '/conductor/ticket/issue',
+          builder: (_, __) => const ConductorIssueTicketScreen()),
+      GoRoute(
+          path: '/conductor/roster',
+          builder: (_, __) => const ConductorRosterScreen()),
+      GoRoute(
+          path: '/conductor/welfare',
+          builder: (_, __) => const ConductorWelfareScreen()),
+
 
       // ── Bus Owner (Web — sidebar shell) ────────────────────
       ShellRoute(

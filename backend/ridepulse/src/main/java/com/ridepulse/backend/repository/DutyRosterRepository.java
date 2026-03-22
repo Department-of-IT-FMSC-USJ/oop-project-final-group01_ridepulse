@@ -50,4 +50,13 @@ public interface DutyRosterRepository extends JpaRepository<DutyRoster, Integer>
             @Param("busId") Integer busId,
             @Param("from") LocalDate from,
             @Param("to") LocalDate to);
+
+// This method already exists — verify it's present:
+//   findByStaff_StaffIdAndDutyDateOrderByShiftStart(staffId, dutyDate)
+// If missing, add:
+
+    // Used by: ConductorServiceImpl.getTodayRosters() + getRostersForDate()
+    List<DutyRoster> findByStaff_StaffIdAndDutyDateOrderByShiftStart(
+            Integer staffId, LocalDate dutyDate);
+
 }

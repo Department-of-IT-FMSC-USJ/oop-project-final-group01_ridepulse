@@ -60,4 +60,10 @@ public interface StaffWelfareBalanceRepository extends JpaRepository<StaffWelfar
             @Param("ownerId") Integer ownerId,
             @Param("month") Integer month,
             @Param("year") Integer year);
+
+    // Used by: ConductorServiceImpl.getWelfareHistory()
+
+    // Returns all welfare records for a staff member, newest first
+    List<StaffWelfareBalance> findByStaff_StaffIdOrderByBalanceYearDescBalanceMonthDesc(
+            Integer staffId);
 }

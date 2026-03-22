@@ -73,6 +73,37 @@ final complaintStatsProvider =
   return ref.read(apiServiceProvider).getComplaintStats();
 });
 
+// Conductor dashboard
+final conductorDashboardProvider =
+FutureProvider.autoDispose<ConductorDashboardModel>((ref) async {
+  return ref.read(apiServiceProvider).getConductorDashboard();
+});
+
+// Today's roster for conductor
+final conductorRosterTodayProvider =
+FutureProvider.autoDispose<List<RosterModel>>((ref) async {
+  return ref.read(apiServiceProvider).getConductorTodayRoster();
+});
+
+// Route stops for ticket issue dropdown
+final routeStopsProvider = FutureProvider.autoDispose
+    .family<List<StopModel>, int>((ref, routeId) async {
+  return ref.read(apiServiceProvider).getRouteStops(routeId);
+});
+
+// Tickets issued in current trip
+final tripTicketsProvider = FutureProvider.autoDispose
+    .family<List<TicketModel>, int>((ref, tripId) async {
+  return ref.read(apiServiceProvider).getTripTickets(tripId);
+});
+
+// Conductor welfare history
+final conductorWelfareProvider =
+FutureProvider.autoDispose<List<ConductorWelfareModel>>((ref) async {
+  return ref.read(apiServiceProvider).getConductorWelfare();
+});
+
+
 // ── ApiService class ─────────────────────────────────────────
 
 class ApiService {
@@ -286,4 +317,87 @@ class ApiService {
     });
     return ComplaintDetail.fromJson(data);
   }
+
+  // ── Conductor — Dashboard ──────────────────────────────────
+  Future<ConductorDashboardModel> getConductorDashboard() async {
+    final data = await _get('/conductor/dashboard');
+    return ConductorDashboardModel.fromJson(data);
+  }
+
+  // ── Conductor — Roster ─────────────────────────────────────
+  Future<List<RosterModel>> getConductorTodayRoster() async {
+    final data = await _get('/conductor/roster/today') as List;
+    return data.map((e) => RosterModel.fromJson(e)).toList();
+  }
+
+  Future<List<RosterModel>> getConductorRosterForDate(String date) async {
+    final data = await _get('/conductor/roster?date=$date') as List;
+    return data.map((e) => RosterModel.fromJson(e)).toList();
+  }
+
+  // ── Conductor — Trip Lifecycle ─────────────────────────────
+  Future<TripModel> startTrip(int rosterId) async {
+    final data = await _post('/conductor/trip/start', {'rosterId': rosterId});
+    return TripModel.fromJson(data);
+  }
+
+  Future<TripModel> stopTrip(int tripId) async {
+    final data = await _post('/conductor/trip/$tripId/stop', {});
+    return TripModel.fromJson(data);
+  }
+
+  Future<TripModel> getActiveTrip() async {
+    final data = await _get('/conductor/trip/active');
+    return TripModel.fromJson(data);
+  }
+
+  Future<List<TicketModel>> getTripTickets(int tripId) async {
+    final data = await _get('/conductor/trip/$tripId/tickets') as List;
+    return data.map((e) => TicketModel.fromJson(e)).toList();
+  }
+
+  // ── Conductor — Ticketing ──────────────────────────────────
+  Future<TicketModel> issueTicket({
+    required int tripId,
+    required int routeId,
+    required int boardingStopId,
+    required int alightingStopId,
+    String paymentMethod = 'cash',
+    String? passengerUserId,
+  }) async {
+    final data = await _post('/conductor/ticket/issue', {
+      'tripId':         tripId,
+      'routeId':        routeId,
+      'boardingStopId':  boardingStopId,
+      'alightingStopId': alightingStopId,
+      'paymentMethod':   paymentMethod,
+      'passengerUserId': passengerUserId,
+    });
+    return TicketModel.fromJson(data);
+  }
+
+  Future<TicketModel> validateTicket(String qrCode) async {
+    final data = await _post('/conductor/ticket/validate', {'qrCode': qrCode});
+    return TicketModel.fromJson(data);
+  }
+
+  // ── Conductor — Crowd ──────────────────────────────────────
+  Future<TripModel> updateCrowdLevel(int tripId, int count) async {
+    final data = await _post('/conductor/crowd/update',
+        {'tripId': tripId, 'passengerCount': count});
+    return TripModel.fromJson(data);
+  }
+
+  // ── Conductor — Route Stops ────────────────────────────────
+  Future<List<StopModel>> getRouteStops(int routeId) async {
+    final data = await _get('/conductor/route/$routeId/stops') as List;
+    return data.map((e) => StopModel.fromJson(e)).toList();
+  }
+
+  // ── Conductor — Welfare ────────────────────────────────────
+  Future<List<ConductorWelfareModel>> getConductorWelfare() async {
+    final data = await _get('/conductor/welfare') as List;
+    return data.map((e) => ConductorWelfareModel.fromJson(e)).toList();
+  }
+
 }

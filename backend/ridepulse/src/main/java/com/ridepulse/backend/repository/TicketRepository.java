@@ -59,4 +59,44 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
 
     // Used by: ConductorApp — check if ticket number already exists
     boolean existsByTicketNumber(String ticketNumber);
+
+
+    // Used by: ConductorServiceImpl.getTripTickets()
+    List<Ticket> findByTrip_TripIdOrderByIssuedAtDesc(Integer tripId);
+
+    // Used by: ConductorServiceImpl.toTripStatusDTO() — ticket count per trip
+    @Query("SELECT COUNT(t) FROM Ticket t WHERE t.trip.tripId = :tripId")
+    int countByTrip_TripId(@Param("tripId") Integer tripId);
+
+    // Used by: ConductorServiceImpl.toTripStatusDTO() — total fare collected in trip
+    @Query("SELECT COALESCE(SUM(t.fareAmount), 0) FROM Ticket t " +
+            "WHERE t.trip.tripId = :tripId AND t.ticketStatus IN ('active','used')")
+    BigDecimal sumFareByTrip(@Param("tripId") Integer tripId);
+
+    // Used by: ConductorServiceImpl.getDashboard() — tickets issued this month by staff
+    @Query("""
+            SELECT COUNT(t) FROM Ticket t
+            WHERE t.conductor.staffId = :staffId
+              AND MONTH(t.issuedAt) = :month
+              AND YEAR(t.issuedAt) = :year
+            """)
+    int countByStaffAndMonth(
+            @Param("staffId") Integer staffId,
+            @Param("month")   Integer month,
+            @Param("year")    Integer year);
+
+    // Used by: ConductorServiceImpl.getDashboard() — total fare this month by staff
+    @Query("""
+            SELECT COALESCE(SUM(t.fareAmount), 0) FROM Ticket t
+            WHERE t.conductor.staffId = :staffId
+              AND MONTH(t.issuedAt) = :month
+              AND YEAR(t.issuedAt) = :year
+              AND t.ticketStatus IN ('active', 'used')
+            """)
+    BigDecimal sumFareByStaffAndMonth(
+            @Param("staffId") Integer staffId,
+            @Param("month")   Integer month,
+            @Param("year")    Integer year);
 }
+
+
