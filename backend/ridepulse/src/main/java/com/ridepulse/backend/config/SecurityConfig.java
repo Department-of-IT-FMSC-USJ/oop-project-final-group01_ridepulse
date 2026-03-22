@@ -38,13 +38,18 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                "/api/v1/auth/login",
-                                "/api/v1/auth/register/passenger",
-                                "/api/v1/auth/register/bus-owner",
-                                "/api/v1/auth/register/authority",
-                                "/api/v1/auth/refresh",
-                                "/api/v1/routes"          // route dropdown is public
+                            "/api/v1/auth/login",
+                            "/api/v1/auth/register/passenger",
+                            "/api/v1/auth/register/bus-owner",
+                            "/api/v1/auth/register/authority",
+                            "/api/v1/auth/refresh",
+                            "/api/v1/routes",
+                            "/api/v1/routes/**",
+                            "/api/v1/passenger/routes",
+                            "/api/v1/passenger/routes/**",
+                            "/api/v1/passenger/buses/**"
                         ).permitAll()
+
                         .anyRequest().authenticated()
                 )
                 .authenticationProvider(authenticationProvider())
