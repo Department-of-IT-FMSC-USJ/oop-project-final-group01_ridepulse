@@ -400,4 +400,30 @@ class ApiService {
     return data.map((e) => ConductorWelfareModel.fromJson(e)).toList();
   }
 
+  Future<void> generateTodayPredictions({
+    String weather      = 'clear',
+    double rain         = 0.0,
+    String trafficLevel = 'medium',
+  }) async {
+    await _post('/authority/predictions/generate/today', {
+      'weather':      weather,
+      'rain':         rain,
+      'trafficLevel': trafficLevel,
+    });
+  }
+
+  Future<void> generatePredictionsForDate({
+    required String date,
+    String weather      = 'clear',
+    double rain         = 0.0,
+    String trafficLevel = 'medium',
+  }) async {
+    await _post('/authority/predictions/generate', {
+      'date':         date,
+      'weather':      weather,
+      'rain':         rain,
+      'trafficLevel': trafficLevel,
+    });
+  }
+
 }

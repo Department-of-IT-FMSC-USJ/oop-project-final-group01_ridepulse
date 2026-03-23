@@ -30,6 +30,7 @@ import '../../features/bus_owner/screens/bus_owner_complaints_screen.dart';
 import '../../features/authority/screens/authority_dashboard_screen.dart';
 import '../../features/authority/screens/authority_complaint_list_screen.dart';
 import '../../features/authority/screens/authority_complaint_detail_screen.dart';
+import '../../features/authority/screens/authority_prediction_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -163,6 +164,9 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/authority/complaints/:id',
             builder: (_, s) => AuthorityComplaintDetailScreen(
                 complaintId: int.parse(s.pathParameters['id']!)),
+          GoRoute(
+            path: '/authority/predictions',
+            builder: (_, __) => const AuthorityPredictionScreen()),
           ),
         ],
       ),

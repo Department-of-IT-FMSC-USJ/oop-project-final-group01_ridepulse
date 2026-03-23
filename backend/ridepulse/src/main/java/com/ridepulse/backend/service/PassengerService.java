@@ -1,6 +1,6 @@
-package com.ridepulse.service;
+package com.ridepulse.backend.service;
 
-import com.ridepulse.dto.*;
+import com.ridepulse.backend.dto.*;
 import java.util.List;
 
 public interface PassengerService {

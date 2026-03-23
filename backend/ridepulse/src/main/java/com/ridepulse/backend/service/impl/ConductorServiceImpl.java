@@ -3,12 +3,12 @@
 // OOP Encapsulation: all conductor business logic hidden here.
 //     Polymorphism: fare calculation uses stop sequence position.
 // ============================================================
-package com.ridepulse.service.impl;
+package com.ridepulse.backend.service.impl;
 
-import com.ridepulse.dto.*;
-import com.ridepulse.entity.*;
-import com.ridepulse.repository.*;
-import com.ridepulse.service.ConductorService;
+import com.ridepulse.backend.dto.*;
+import com.ridepulse.backend.entity.*;
+import com.ridepulse.backend.repository.*;
+import com.ridepulse.backend.service.ConductorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -329,7 +329,7 @@ public class ConductorServiceImpl implements ConductorService {
 
     @Override
     public List<ConductorWelfareDTO> getWelfareHistory(Integer staffId) {
-        return welfareRepo.findByStaff_StaffIdOrderByYearDescMonthDesc(staffId)
+        return welfareRepo.findByStaff_StaffIdOrderByBalanceYearDescBalanceMonthDesc(staffId)
                 .stream()
                 .map(w -> ConductorWelfareDTO.builder()
                         .month(w.getBalanceMonth())

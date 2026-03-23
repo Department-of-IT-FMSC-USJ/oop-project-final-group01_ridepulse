@@ -1,4 +1,4 @@
-package com.ridepulse.controller;
+package com.ridepulse.backend.controller;
 
 // ============================================================
 // ConductorController.java
@@ -7,9 +7,9 @@ package com.ridepulse.controller;
 //     Polymorphism: @PreAuthorize restricts to conductor role only.
 // ============================================================
 
-import com.ridepulse.config.CustomUserDetails;
-import com.ridepulse.dto.*;
-import com.ridepulse.service.ConductorService;
+import com.ridepulse.backend.config.CustomUserDetails;
+import com.ridepulse.backend.dto.*;
+import com.ridepulse.backend.service.ConductorService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.*;

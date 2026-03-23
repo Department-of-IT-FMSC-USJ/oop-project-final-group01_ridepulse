@@ -1,8 +1,8 @@
-package com.ridepulse.controller;
+package com.ridepulse.backend.controller;
 
 
-import com.ridepulse.dto.*;
-import com.ridepulse.service.PassengerService;
+import com.ridepulse.backend.dto.*;
+import com.ridepulse.backend.service.PassengerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

@@ -1,11 +1,11 @@
-
+package com.ridepulse.backend.service;
 // ============================================================
 // ConductorService.java — interface
 // OOP Abstraction: defines the full conductor module contract.
 //     Controllers depend only on this — never the impl.
 // ============================================================
 
-import com.ridepulse.dto.*;
+import com.ridepulse.backend.dto.*;
 import java.util.List;
 
 public interface ConductorService {

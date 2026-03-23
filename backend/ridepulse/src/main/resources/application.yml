@@ -35,3 +35,13 @@ logging:
   level:
     com.ridepulse: DEBUG
     org.springframework.security: INFO
+
+lstm:
+  service:
+    url: http://localhost:8000
+    enabled: true
+
+  spring:
+    task:
+      execution:
+        thread-name-prefix: prediction-

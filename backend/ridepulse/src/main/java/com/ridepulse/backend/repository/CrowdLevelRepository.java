@@ -5,7 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,6 +15,28 @@ import java.util.Optional;
  */
 @Repository
 public interface CrowdLevelRepository extends JpaRepository<CrowdLevel, Long> {
+    // Used by: authority analytics — crowd trend for a route over time
+    @Query("""
+        SELECT c FROM CrowdLevel c
+        WHERE c.trip.route.routeId = :routeId
+          AND c.recordedAt BETWEEN :from AND :to
+        ORDER BY c.recordedAt DESC
+        """)
+    List<CrowdLevel> findByRouteAndDateRange(
+            @Param("routeId")  Integer routeId,
+            @Param("from")     LocalDateTime from,
+            @Param("to")       LocalDateTime to);
+
+    // Used by: PredictionSchedulerService — get average capacity for route
+    @Query("""
+        SELECT AVG(CAST(c.passengerCount AS double) / CAST(c.busCapacity AS double) * 100)
+        FROM CrowdLevel c
+        WHERE c.trip.route.routeId = :routeId
+          AND c.recordedAt >= :since
+        """)
+    Double averageOccupancyForRouteSince(
+            @Param("routeId") Integer routeId,
+            @Param("since")   LocalDateTime since);
 
     // Used by: DashboardServiceImpl — latest crowd reading per bus for dashboard card
     @Query("""
