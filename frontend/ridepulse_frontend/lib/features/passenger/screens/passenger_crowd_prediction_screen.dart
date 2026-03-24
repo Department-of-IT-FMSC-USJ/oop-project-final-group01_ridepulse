@@ -238,14 +238,14 @@ class _SlotRow extends StatelessWidget {
                     color: _color, fontSize: 12,
                     fontWeight: FontWeight.w500)),
             const Spacer(),
-            Text('\${slot.predictedPercentage.toStringAsFixed(0)}%',
+            Text('${slot.predictedPercentage.toStringAsFixed(0)}%',
                 style: TextStyle(
                     color: _color, fontWeight: FontWeight.bold)),
           ]),
         ])),
         if (slot.confidenceScore != null) ...[
           const SizedBox(width: 12),
-          Text('\${(slot.confidenceScore! * 100).toStringAsFixed(0)}%',
+          Text('${(slot.confidenceScore! * 100).toStringAsFixed(0)}%',
               style: const TextStyle(
                   color: Colors.grey, fontSize: 11)),
         ],
