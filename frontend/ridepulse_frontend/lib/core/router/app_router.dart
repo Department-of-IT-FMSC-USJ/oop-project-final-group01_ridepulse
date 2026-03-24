@@ -31,6 +31,18 @@ import '../../features/authority/screens/authority_dashboard_screen.dart';
 import '../../features/authority/screens/authority_complaint_list_screen.dart';
 import '../../features/authority/screens/authority_complaint_detail_screen.dart';
 import '../../features/authority/screens/authority_prediction_screen.dart';
+import '../../features/conductor/screens/conductor_trip_screen.dart';
+import '../../features/conductor/screens/conductor_issue_ticket_screen.dart';
+import '../../features/conductor/screens/conductor_roster_screen.dart';
+import '../../features/conductor/screens/conductor_welfare_screen.dart';
+import '../../features/passenger/screens/passenger_home_screen.dart';
+import '../../features/passenger/screens/passenger_search_screen.dart';
+import '../../features/passenger/screens/passenger_route_detail_screen.dart';
+import '../../features/passenger/screens/passenger_bus_live_screen.dart';
+import '../../features/passenger/screens/passenger_crowd_prediction_screen.dart';
+import '../../features/passenger/screens/passenger_complaint_list_screen.dart';
+import '../../features/passenger/screens/passenger_complaint_submit_screen.dart';
+import '../../features/passenger/screens/passenger_complaint_detail_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -89,18 +101,42 @@ final routerProvider = Provider<GoRouter>((ref) {
           builder: (_, __) =>
               const RegisterScreen(type: 'authority')),
 
-      // ── Passenger (Mobile) ──────────────────────────────────
-      GoRoute(path: '/passenger/home',
-          builder: (_, __) => const PassengerHomeScreen()),
-      GoRoute(path: '/passenger/complaints',
-          builder: (_, __) => const PassengerComplaintListScreen()),
-      GoRoute(path: '/passenger/complaints/submit',
-          builder: (_, __) => const PassengerComplaintSubmitScreen()),
+      // ── Passenger (Mobile) ─────────────────────────────────
+      GoRoute(
+        path: '/passenger/home',
+        builder: (_, __) => const PassengerHomeScreen()),
+
+      GoRoute(
+        path: '/passenger/search',
+        builder: (_, __) => const PassengerSearchScreen()),
+
+      GoRoute(
+        path: '/passenger/routes/:routeId',
+        builder: (_, s) => PassengerRouteDetailScreen(
+            routeId: int.parse(s.pathParameters['routeId']!))),
+
+      GoRoute(
+        path: '/passenger/buses/:busId/live',
+        builder: (_, s) => PassengerBusLiveScreen(
+            busId: int.parse(s.pathParameters['busId']!))),
+
+      GoRoute(
+        path: '/passenger/routes/:routeId/prediction',
+        builder: (_, s) => PassengerCrowdPredictionScreen(
+            routeId: int.parse(s.pathParameters['routeId']!))),
+
+      // Complaint routes (existing — keep these)
+      GoRoute(
+        path: '/passenger/complaints',
+        builder: (_, __) => const PassengerComplaintListScreen()),
+      GoRoute(
+        path: '/passenger/complaints/submit',
+        builder: (_, __) => const PassengerComplaintSubmitScreen()),
       GoRoute(
         path: '/passenger/complaints/:id',
-        builder: (_, state) => PassengerComplaintDetailScreen(
-            complaintId: int.parse(state.pathParameters['id']!)),
-      ),
+        builder: (_, s) => PassengerComplaintDetailScreen(
+            complaintId: int.parse(s.pathParameters['id']!))),
+
 
       // ── Driver (Mobile) ────────────────────────────────────
       GoRoute(path: '/driver/home',
@@ -163,10 +199,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/authority/complaints/:id',
             builder: (_, s) => AuthorityComplaintDetailScreen(
-                complaintId: int.parse(s.pathParameters['id']!)),
+                complaintId: int.parse(s.pathParameters['id']!),
+                ),
+          ),
           GoRoute(
             path: '/authority/predictions',
-            builder: (_, __) => const AuthorityPredictionScreen()),
+            builder: (_, __) => const AuthorityPredictionScreen(),
           ),
         ],
       ),

@@ -133,7 +133,7 @@ class _Body extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(bus.routeName,
                       style: const TextStyle(fontWeight: FontWeight.w600)),
-                  Text('Route \${bus.routeNumber}',
+                  Text('Route ${bus.routeNumber}',
                       style: const TextStyle(
                           color: Colors.grey, fontSize: 12)),
                 ])),
@@ -142,7 +142,7 @@ class _Body extends StatelessWidget {
                       style: TextStyle(
                           color: Colors.grey.shade500, fontSize: 11)),
                   if (bus.speedKmh != null)
-                    Text('\${bus.speedKmh!.toStringAsFixed(0)} km/h',
+                    Text('${bus.speedKmh!.toStringAsFixed(0)} km/h',
                         style: const TextStyle(
                             fontWeight: FontWeight.w500, fontSize: 12)),
                 ]),
@@ -181,7 +181,7 @@ class _Body extends StatelessWidget {
                             fontWeight: FontWeight.w600,
                             fontSize: 12))),
                     const Spacer(),
-                    Text('\${bus.passengerCount}/\${bus.capacity}',
+                    Text('${bus.passengerCount}/${bus.capacity}',
                         style: TextStyle(
                             color: _crowdColor,
                             fontWeight: FontWeight.bold,

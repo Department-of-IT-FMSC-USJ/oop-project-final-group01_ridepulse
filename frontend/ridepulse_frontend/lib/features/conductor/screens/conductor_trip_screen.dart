@@ -215,7 +215,7 @@ class _RosterCard extends StatelessWidget {
           Row(children: [
           const Icon(Icons.event_note, color: Color(0xFFB45309), size: 20),
           const SizedBox(width: 8),
-          const Text('Today's Assignment',
+          const Text("Today's Assignment",
           style: TextStyle(fontWeight: FontWeight.bold)),
       const Spacer(),
       Text(roster.dutyDate,

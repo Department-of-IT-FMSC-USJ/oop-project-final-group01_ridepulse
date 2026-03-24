@@ -16,9 +16,9 @@ class _State extends ConsumerState<PassengerCrowdPredictionScreen> {
   DateTime _selectedDate = DateTime.now();
 
   String get _dateStr =>
-      '\${_selectedDate.year}-'
-      '\${_selectedDate.month.toString().padLeft(2, "0")}-'
-      '\${_selectedDate.day.toString().padLeft(2, "0")}';
+      '${_selectedDate.year}-'
+      '${_selectedDate.month.toString().padLeft(2, "0")}-'
+      '${_selectedDate.day.toString().padLeft(2, "0")}';
 
   @override
   Widget build(BuildContext context) {

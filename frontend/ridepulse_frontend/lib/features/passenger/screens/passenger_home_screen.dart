@@ -29,7 +29,9 @@ class PassengerHomeScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(20),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           // Greeting
-          Text('Hello, \${auth.fullName?.split(" ").first ?? "Passenger"}! 👋',
+          Text('Hello, ${auth.fullName != null && auth.fullName!.trim().isNotEmpty 
+      ? auth.fullName!.split(" ").first 
+      : "Passenger"}! 👋',
               style: const TextStyle(
                   fontSize: 22, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),

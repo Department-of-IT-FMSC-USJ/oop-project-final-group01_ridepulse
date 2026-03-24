@@ -83,7 +83,7 @@ class _PassengerSearchScreenState
                   itemBuilder: (_, i) => _RouteCard(
                     route: routes[i],
                     onTap: () => context.go(
-                        '/passenger/routes/\${routes[i].routeId}'),
+                        '/passenger/routes/${routes[i].routeId}'),
                   ),
                 ),
         )),
