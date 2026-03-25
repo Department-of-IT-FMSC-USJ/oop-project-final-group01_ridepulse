@@ -1,6 +1,6 @@
 // ============================================================
 // core/router/app_router.dart
-// GoRouter with role-based auth guards
+// GoRouter with role-based auth guards — ALL modules wired
 // OOP Polymorphism: redirect logic branches per user role
 // ============================================================
 import 'package:flutter/material.dart';
@@ -10,14 +10,37 @@ import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
 import '../layouts/bus_owner_shell.dart';
 import '../layouts/authority_shell.dart';
+
+// Auth
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/register_screen.dart';
+
+// Passenger
 import '../../features/passenger/screens/passenger_home_screen.dart';
+import '../../features/passenger/screens/passenger_search_screen.dart';
+import '../../features/passenger/screens/passenger_route_detail_screen.dart';
+import '../../features/passenger/screens/passenger_bus_live_screen.dart';
+import '../../features/passenger/screens/passenger_crowd_prediction_screen.dart';
 import '../../features/passenger/screens/passenger_complaint_list_screen.dart';
 import '../../features/passenger/screens/passenger_complaint_submit_screen.dart';
 import '../../features/passenger/screens/passenger_complaint_detail_screen.dart';
+
+// Driver
 import '../../features/driver/screens/driver_home_screen.dart';
+import '../../features/driver/screens/driver_trip_screen.dart';
+import '../../features/driver/screens/driver_emergency_screen.dart';
+import '../../features/driver/screens/driver_roster_screen.dart';
+import '../../features/driver/screens/driver_welfare_screen.dart';
+import '../../features/driver/screens/driver_income_screen.dart';
+
+// Conductor
 import '../../features/conductor/screens/conductor_home_screen.dart';
+import '../../features/conductor/screens/conductor_trip_screen.dart';
+import '../../features/conductor/screens/conductor_issue_ticket_screen.dart';
+import '../../features/conductor/screens/conductor_roster_screen.dart';
+import '../../features/conductor/screens/conductor_welfare_screen.dart';
+
+// Bus Owner
 import '../../features/bus_owner/screens/dashboard_screen.dart';
 import '../../features/bus_owner/screens/bus_management_screen.dart';
 import '../../features/bus_owner/screens/staff_list_screen.dart';
@@ -27,22 +50,11 @@ import '../../features/bus_owner/screens/revenue_screen.dart';
 import '../../features/bus_owner/screens/welfare_screen.dart';
 import '../../features/bus_owner/screens/live_map_screen.dart';
 import '../../features/bus_owner/screens/bus_owner_complaints_screen.dart';
+
+// Authority
 import '../../features/authority/screens/authority_dashboard_screen.dart';
 import '../../features/authority/screens/authority_complaint_list_screen.dart';
 import '../../features/authority/screens/authority_complaint_detail_screen.dart';
-import '../../features/authority/screens/authority_prediction_screen.dart';
-import '../../features/conductor/screens/conductor_trip_screen.dart';
-import '../../features/conductor/screens/conductor_issue_ticket_screen.dart';
-import '../../features/conductor/screens/conductor_roster_screen.dart';
-import '../../features/conductor/screens/conductor_welfare_screen.dart';
-import '../../features/passenger/screens/passenger_home_screen.dart';
-import '../../features/passenger/screens/passenger_search_screen.dart';
-import '../../features/passenger/screens/passenger_route_detail_screen.dart';
-import '../../features/passenger/screens/passenger_bus_live_screen.dart';
-import '../../features/passenger/screens/passenger_crowd_prediction_screen.dart';
-import '../../features/passenger/screens/passenger_complaint_list_screen.dart';
-import '../../features/passenger/screens/passenger_complaint_submit_screen.dart';
-import '../../features/passenger/screens/passenger_complaint_detail_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -54,19 +66,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       final role     = auth.role ?? '';
       final loc      = state.matchedLocation;
 
-      // Public paths — no redirect needed
       const publicPaths = [
         '/login', '/register/passenger',
         '/register/bus-owner', '/register/authority',
       ];
       final isPublic = publicPaths.any((p) => loc.startsWith(p));
 
-      // Not logged in → go to login
       if (!loggedIn && !isPublic) return '/login';
 
-      // Already logged in on a public page → go to role home
       if (loggedIn && isPublic) {
-        // Polymorphism: role maps to home screen
         return switch (role) {
           'bus_owner'  => '/bus-owner/dashboard',
           'driver'     => '/driver/home',
@@ -77,7 +85,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         };
       }
 
-      // Role guards — prevent cross-role access
       if (loc.startsWith('/bus-owner') && role != 'bus_owner')  return '/login';
       if (loc.startsWith('/authority') && role != 'authority')  return '/login';
       if (loc.startsWith('/driver')    && role != 'driver')     return '/login';
@@ -90,127 +97,104 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       // ── Public ─────────────────────────────────────────────
       GoRoute(path: '/login',
-          builder: (_, __) => const LoginScreen()),
+          builder: (context, state) => const LoginScreen()),
       GoRoute(path: '/register/passenger',
-          builder: (_, __) =>
-              const RegisterScreen(type: 'passenger')),
+          builder: (context, state) => const RegisterScreen(type: 'passenger')),
       GoRoute(path: '/register/bus-owner',
-          builder: (_, __) =>
-              const RegisterScreen(type: 'bus_owner')),
+          builder: (context, state) => const RegisterScreen(type: 'bus_owner')),
       GoRoute(path: '/register/authority',
-          builder: (_, __) =>
-              const RegisterScreen(type: 'authority')),
+          builder: (context, state) => const RegisterScreen(type: 'authority')),
 
-      // ── Passenger (Mobile) ─────────────────────────────────
-      GoRoute(
-        path: '/passenger/home',
-        builder: (_, __) => const PassengerHomeScreen()),
+      // ── Passenger ──────────────────────────────────────────
+      GoRoute(path: '/passenger/home',
+          builder: (context, state) => const PassengerHomeScreen()),
+      GoRoute(path: '/passenger/search',
+          builder: (context, state) => const PassengerSearchScreen()),
+      GoRoute(path: '/passenger/routes/:routeId',
+          builder: (context, state) => PassengerRouteDetailScreen(
+              routeId: int.parse(state.pathParameters['routeId']!))),
+      GoRoute(path: '/passenger/buses/:busId/live',
+          builder: (context, state) => PassengerBusLiveScreen(
+              busId: int.parse(state.pathParameters['busId']!))),
+      GoRoute(path: '/passenger/routes/:routeId/prediction',
+          builder: (context, state) => PassengerCrowdPredictionScreen(
+              routeId: int.parse(state.pathParameters['routeId']!))),
+      GoRoute(path: '/passenger/complaints',
+          builder: (context, state) => const PassengerComplaintListScreen()),
+      GoRoute(path: '/passenger/complaints/submit',
+          builder: (context, state) => const PassengerComplaintSubmitScreen()),
+      GoRoute(path: '/passenger/complaints/:id',
+          builder: (context, state) => PassengerComplaintDetailScreen(
+              complaintId: int.parse(state.pathParameters['id']!))),
 
-      GoRoute(
-        path: '/passenger/search',
-        builder: (_, __) => const PassengerSearchScreen()),
-
-      GoRoute(
-        path: '/passenger/routes/:routeId',
-        builder: (_, s) => PassengerRouteDetailScreen(
-            routeId: int.parse(s.pathParameters['routeId']!))),
-
-      GoRoute(
-        path: '/passenger/buses/:busId/live',
-        builder: (_, s) => PassengerBusLiveScreen(
-            busId: int.parse(s.pathParameters['busId']!))),
-
-      GoRoute(
-        path: '/passenger/routes/:routeId/prediction',
-        builder: (_, s) => PassengerCrowdPredictionScreen(
-            routeId: int.parse(s.pathParameters['routeId']!))),
-
-      // Complaint routes (existing — keep these)
-      GoRoute(
-        path: '/passenger/complaints',
-        builder: (_, __) => const PassengerComplaintListScreen()),
-      GoRoute(
-        path: '/passenger/complaints/submit',
-        builder: (_, __) => const PassengerComplaintSubmitScreen()),
-      GoRoute(
-        path: '/passenger/complaints/:id',
-        builder: (_, s) => PassengerComplaintDetailScreen(
-            complaintId: int.parse(s.pathParameters['id']!))),
-
-
-      // ── Driver (Mobile) ────────────────────────────────────
+      // ── Driver ─────────────────────────────────────────────
       GoRoute(path: '/driver/home',
-          builder: (_, __) => const DriverHomeScreen()),
+          builder: (context, state) => const DriverHomeScreen()),
+      GoRoute(path: '/driver/trip',
+          builder: (context, state) => const DriverTripScreen()),
+      GoRoute(path: '/driver/emergency',
+          builder: (context, state) => const DriverEmergencyScreen()),
+      GoRoute(path: '/driver/roster',
+          builder: (context, state) => const DriverRosterScreen()),
+      GoRoute(path: '/driver/welfare',
+          builder: (context, state) => const DriverWelfareScreen()),
+      GoRoute(path: '/driver/income',
+          builder: (context, state) => const DriverIncomeScreen()),
 
-      // ── Conductor (Mobile) ─────────────────────────────────
-      GoRoute(
-          path: '/conductor/home',
-          builder: (_, __) => const ConductorHomeScreen()),
-      GoRoute(
-          path: '/conductor/trip',
-          builder: (_, __) => const ConductorTripScreen()),
-      GoRoute(
-          path: '/conductor/ticket/issue',
-          builder: (_, __) => const ConductorIssueTicketScreen()),
-      GoRoute(
-          path: '/conductor/roster',
-          builder: (_, __) => const ConductorRosterScreen()),
-      GoRoute(
-          path: '/conductor/welfare',
-          builder: (_, __) => const ConductorWelfareScreen()),
+      // ── Conductor ──────────────────────────────────────────
+      GoRoute(path: '/conductor/home',
+          builder: (context, state) => const ConductorHomeScreen()),
+      GoRoute(path: '/conductor/trip',
+          builder: (context, state) => const ConductorTripScreen()),
+      GoRoute(path: '/conductor/ticket/issue',
+          builder: (context, state) => const ConductorIssueTicketScreen()),
+      GoRoute(path: '/conductor/roster',
+          builder: (context, state) => const ConductorRosterScreen()),
+      GoRoute(path: '/conductor/welfare',
+          builder: (context, state) => const ConductorWelfareScreen()),
 
-
-      // ── Bus Owner (Web — sidebar shell) ────────────────────
+      // ── Bus Owner (sidebar shell) ───────────────────────────
       ShellRoute(
-        builder: (_, __, child) => BusOwnerShell(child: child),
+        builder: (context, state, child) => BusOwnerShell(child: child),
         routes: [
           GoRoute(path: '/bus-owner/dashboard',
-              builder: (_, __) => const BusOwnerDashboardScreen()),
+              builder: (context, state) => const BusOwnerDashboardScreen()),
           GoRoute(path: '/bus-owner/buses',
-              builder: (_, __) => const BusManagementScreen()),
+              builder: (context, state) => const BusManagementScreen()),
           GoRoute(path: '/bus-owner/staff',
-              builder: (_, __) => const StaffListScreen()),
+              builder: (context, state) => const StaffListScreen()),
           GoRoute(path: '/bus-owner/staff/register',
-              builder: (_, __) => const RegisterStaffScreen()),
-          GoRoute(
-            path: '/bus-owner/staff/:id',
-            builder: (_, s) => StaffProfileScreen(
-                staffId: int.parse(s.pathParameters['id']!)),
-          ),
+              builder: (context, state) => const RegisterStaffScreen()),
+          GoRoute(path: '/bus-owner/staff/:id',
+              builder: (context, state) => StaffProfileScreen(
+                  staffId: int.parse(state.pathParameters['id']!))),
           GoRoute(path: '/bus-owner/revenue',
-              builder: (_, __) => const RevenueScreen()),
+              builder: (context, state) => const RevenueScreen()),
           GoRoute(path: '/bus-owner/welfare',
-              builder: (_, __) => const WelfareScreen()),
+              builder: (context, state) => const WelfareScreen()),
           GoRoute(path: '/bus-owner/live-map',
-              builder: (_, __) => const LiveMapScreen()),
+              builder: (context, state) => const LiveMapScreen()),
           GoRoute(path: '/bus-owner/complaints',
-              builder: (_, __) => const BusOwnerComplaintsScreen()),
+              builder: (context, state) => const BusOwnerComplaintsScreen()),
         ],
       ),
 
-      // ── Authority (Web — sidebar shell) ────────────────────
+      // ── Authority (sidebar shell) ───────────────────────────
       ShellRoute(
-        builder: (_, __, child) => AuthorityShell(child: child),
+        builder: (context, state, child) => AuthorityShell(child: child),
         routes: [
           GoRoute(path: '/authority/dashboard',
-              builder: (_, __) => const AuthorityDashboardScreen()),
+              builder: (context, state) => const AuthorityDashboardScreen()),
           GoRoute(path: '/authority/complaints',
-              builder: (_, __) => const AuthorityComplaintListScreen()),
-          GoRoute(
-            path: '/authority/complaints/:id',
-            builder: (_, s) => AuthorityComplaintDetailScreen(
-                complaintId: int.parse(s.pathParameters['id']!),
-                ),
-          ),
-          GoRoute(
-            path: '/authority/predictions',
-            builder: (_, __) => const AuthorityPredictionScreen(),
-          ),
+              builder: (context, state) => const AuthorityComplaintListScreen()),
+          GoRoute(path: '/authority/complaints/:id',
+              builder: (context, state) => AuthorityComplaintDetailScreen(
+                  complaintId: int.parse(state.pathParameters['id']!))),
         ],
       ),
     ],
 
-    errorBuilder: (_, state) => Scaffold(
+    errorBuilder: (context, state) => Scaffold(
       body: Center(child: Text('Page not found: ${state.error}')),
     ),
   );
