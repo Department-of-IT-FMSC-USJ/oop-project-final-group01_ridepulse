@@ -3,35 +3,42 @@ spring:
     name: ridepulse-backend
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/ridepulse_db
-    username: postgres
-    password: Chanith123
+    url: jdbc:postgresql://aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?sslmode=require
+    username: postgres.jisovgdcjdqmmzzmysru
+    password: gesPup-kabpop-donpi6
     driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
-      ddl-auto: validate        # validate against existing schema (do NOT use create)
+      ddl-auto: validate
     show-sql: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
 
   jackson:
     serialization:
       write-dates-as-timestamps: false
-    time-zone: Asia/Colombo        # Sri Lanka timezone
+    time-zone: Asia/Colombo
+
+  task:   # ✅ FIXED (moved here)
+    execution:
+      thread-name-prefix: prediction-
 
 server:
   port: 8080
 
-# JWT Configuration — Encapsulation: secret never hardcoded in code
 app:
   jwt:
     secret: ridepulse-super-secret-key-change-in-production-must-be-32-chars-min
-    expiration-ms: 86400000        # 24 hours
+    expiration-ms: 86400000
 
 logging:
   level:
     com.ridepulse: DEBUG
     org.springframework.security: INFO
+
+lstm:
+  service:
+    url: http://localhost:8000
+    enabled: true

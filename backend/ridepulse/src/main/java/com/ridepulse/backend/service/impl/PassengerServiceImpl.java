@@ -1,9 +1,9 @@
-package com.ridepulse.service.impl;
+package com.ridepulse.backend.service.impl;
 
-import com.ridepulse.dto.*;
-import com.ridepulse.entity.*;
-import com.ridepulse.repository.*;
-import com.ridepulse.service.PassengerService;
+import com.ridepulse.backend.dto.*;
+import com.ridepulse.backend.entity.*;
+import com.ridepulse.backend.repository.*;
+import com.ridepulse.backend.service.PassengerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

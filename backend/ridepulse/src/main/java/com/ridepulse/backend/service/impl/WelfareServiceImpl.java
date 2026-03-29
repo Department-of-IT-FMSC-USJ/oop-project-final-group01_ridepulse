@@ -34,7 +34,7 @@ public class WelfareServiceImpl implements WelfareService {
      * OOP Polymorphism: StaffType.getWelfareRate() resolves rate per type.
      * OOP Abstraction: Callers only know "welfare is processed" — not how.
      */
-    @Scheduled(cron = "0 0 0 1 * *")   // 1st of every month, midnight
+     // 1st of every month, midnight
     @Override
     @Transactional
     public void processMonthlyWelfare(int month, int year) {

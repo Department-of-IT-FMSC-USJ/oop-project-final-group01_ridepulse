@@ -1,10 +1,8 @@
-package com.ridepulse.dto;
+package com.ridepulse.backend.dto;
 
 
 import lombok.*;
 import java.util.List;
-
-
 
 
 

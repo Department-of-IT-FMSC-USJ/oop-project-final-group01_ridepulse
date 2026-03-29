@@ -1,0 +1,97 @@
+package com.ridepulse.backend.prediction;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.ResourceAccessException;
+
+import java.util.List;
+import java.util.Map;
+
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class LstmPredictionClient {
+
+    private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper;
+
+    // Injected from application.yml — Encapsulation: URL not hardcoded
+    @Value("${lstm.service.url:http://localhost:8000}")
+    private String lstmServiceUrl;
+
+    @Value("${lstm.service.enabled:true}")
+    private boolean enabled;
+
+    /**
+     * Calls /health on Python service — Spring Boot checks this
+     * before attempting predictions.
+     */
+    public boolean isServiceHealthy() {
+        if (!enabled) return false;
+        try {
+            ResponseEntity<String> res = restTemplate.getForEntity(
+                    lstmServiceUrl + "/health", String.class);
+            return res.getStatusCode().is2xxSuccessful();
+        } catch (Exception e) {
+            log.warn("LSTM service health check failed: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Calls /predict/batch — generates full-day predictions for all routes.
+     * OOP Abstraction: returns typed LstmBatchResponse, hiding HTTP.
+     * Returns null if service unavailable.
+     */
+    public LstmBatchResponse requestBatchPredictions(
+            List<Integer> routeIds,
+            Map<String, Integer> busCapacities,
+            String date,
+            String weather,
+            Double rain,
+            String trafficLevel) {
+
+        if (!enabled) {
+            log.info("LSTM service disabled — skipping predictions.");
+            return null;
+        }
+
+        LstmBatchRequest request = LstmBatchRequest.builder()
+                .routeIds(routeIds)
+                .busCapacities(busCapacities)
+                .date(date)
+                .weather(weather)
+                .rain(rain)
+                .trafficLevel(trafficLevel)
+                .build();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        try {
+            ResponseEntity<LstmBatchResponse> res = restTemplate.exchange(
+                    lstmServiceUrl + "/predict/batch",
+                    HttpMethod.POST,
+                    new HttpEntity<>(request, headers),
+                    LstmBatchResponse.class
+            );
+            log.info("LSTM batch prediction received: {} slots",
+                    res.getBody() != null
+                            ? res.getBody().getTotalPredictions() : 0);
+            return res.getBody();
+
+        } catch (ResourceAccessException e) {
+            log.error("LSTM service unreachable at {}: {}",
+                    lstmServiceUrl, e.getMessage());
+            return null;
+        } catch (Exception e) {
+            log.error("LSTM batch prediction call failed: {}", e.getMessage(), e);
+            return null;
+        }
+    }
+}

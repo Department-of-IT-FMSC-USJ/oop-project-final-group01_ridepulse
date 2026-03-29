@@ -36,7 +36,7 @@ class PassengerComplaintListScreen extends ConsumerWidget {
                 padding: const EdgeInsets.all(16),
                 itemCount: list.length,
                 itemBuilder: (_, i) => _ComplaintTile(c: list[i],
-                    onTap: () => context.go('/passenger/complaints/\${list[i].complaintId}')),
+                    onTap: () => context.go('/passenger/complaints/${list[i].complaintId}')),
               ),
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -95,7 +95,7 @@ class _ComplaintTile extends StatelessWidget {
                 const Icon(Icons.check_circle_outline,
                     color: Color(0xFF10B981), size: 16),
                 const SizedBox(width: 8),
-                Expanded(child: Text('Authority: \${c.authorityFeedback}',
+                Expanded(child: Text('Authority: ${c.authorityFeedback}',
                     style: const TextStyle(fontSize: 13,
                         color: Color(0xFF065F46)))),
               ]),

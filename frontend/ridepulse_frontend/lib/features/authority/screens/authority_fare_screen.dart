@@ -1,3 +1,11 @@
+<<<<<<< HEAD
+=======
+// ============================================================
+// features/authority/screens/authority_fare_screen.dart
+// Authority sets bus fares per route
+// Min: LKR 30 | +8 per stop | Max: LKR 2422
+// ============================================================
+>>>>>>> 91772c300fe92a98959765d2a20f084ce5b88c8f
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:go_router/go_router.dart";

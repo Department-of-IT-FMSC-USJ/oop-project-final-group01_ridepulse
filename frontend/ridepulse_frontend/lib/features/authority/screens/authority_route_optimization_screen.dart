@@ -1,3 +1,10 @@
+<<<<<<< HEAD
+=======
+// ============================================================
+// features/authority/screens/authority_route_optimization_screen.dart
+// Coming Soon placeholder
+// ============================================================
+>>>>>>> 91772c300fe92a98959765d2a20f084ce5b88c8f
 import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
 

@@ -20,7 +20,7 @@ class PassengerComplaintDetailScreen extends ConsumerWidget {
       ),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error:   (e, _) => Center(child: Text('Error: \$e')),
+        error:   (e, _) => Center(child: Text('Error: $e')),
         data:    (c) => _Body(c: c),
       ),
     );
@@ -94,7 +94,7 @@ class _Body extends StatelessWidget {
             Text(c.authorityFeedback!,
                 style: TextStyle(color: Colors.grey.shade800)),
             const SizedBox(height: 6),
-            Text('Handled by: \${c.assignedToName}',
+            Text('Handled by: ${c.assignedToName}',
                 style: const TextStyle(color: Colors.grey, fontSize: 12)),
           ]),
         ),

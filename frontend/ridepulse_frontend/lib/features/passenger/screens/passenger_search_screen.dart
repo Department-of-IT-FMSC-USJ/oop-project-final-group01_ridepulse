@@ -83,7 +83,7 @@ class _PassengerSearchScreenState
                   itemBuilder: (_, i) => _RouteCard(
                     route: routes[i],
                     onTap: () => context.go(
-                        '/passenger/routes/\${routes[i].routeId}'),
+                        '/passenger/routes/${routes[i].routeId}'),
                   ),
                 ),
         )),
@@ -126,7 +126,7 @@ class _RouteCard extends StatelessWidget {
                 style: const TextStyle(
                     fontWeight: FontWeight.w600, fontSize: 14)),
             const SizedBox(height: 4),
-            Text('\${route.startLocation} → \${route.endLocation}',
+            Text('${route.startLocation} → ${route.endLocation}',
                 style: TextStyle(
                     color: Colors.grey.shade600, fontSize: 12)),
             const SizedBox(height: 6),
@@ -143,7 +143,7 @@ class _RouteCard extends StatelessWidget {
               const Icon(Icons.payments_outlined,
                   size: 13, color: Colors.grey),
               const SizedBox(width: 3),
-              Text('LKR \${route.baseFare.toStringAsFixed(0)}',
+              Text('LKR ${route.baseFare.toStringAsFixed(0)}',
                   style: const TextStyle(
                       color: Colors.grey, fontSize: 12)),
             ]),
@@ -167,7 +167,7 @@ class _RouteCard extends StatelessWidget {
                         ? const Color(0xFF10B981)
                         : Colors.grey),
                 const SizedBox(width: 4),
-                Text('\${route.activeBusCount}',
+                Text('${route.activeBusCount}',
                     style: TextStyle(
                         fontSize: 12, fontWeight: FontWeight.w600,
                         color: route.hasBuses

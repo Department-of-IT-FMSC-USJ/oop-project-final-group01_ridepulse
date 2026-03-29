@@ -19,7 +19,8 @@ public interface DutyRosterRepository extends JpaRepository<DutyRoster, Integer>
     // Used by: StaffManagementServiceImpl.buildStaffProfileDTO()
     // Counts scheduled/completed duty days for a staff member in a given month
     @Query("""
-        SELECT COUNT(r) FROM DutyRoster r
+
+            SELECT COUNT(r) FROM DutyRoster r
         WHERE r.staff.staffId = :staffId
           AND MONTH(r.dutyDate) = :month
           AND YEAR(r.dutyDate) = :year
@@ -50,4 +51,10 @@ public interface DutyRosterRepository extends JpaRepository<DutyRoster, Integer>
             @Param("busId") Integer busId,
             @Param("from") LocalDate from,
             @Param("to") LocalDate to);
-}
+    }
+
+// This method already exists — verify it's present:
+//   findByStaff_StaffIdAndDutyDateOrderByShiftStart(staffId, dutyDate)
+// If missing, add:
+
+    // Used by: ConductorServiceImpl.getTodayRosters() + getRostersForDate()

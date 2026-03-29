@@ -1,29 +1,47 @@
 package com.ridepulse.backend.dto.auth;
 
+// ============================================================
+// RegisterStaffRequest.java — UPDATED
+// ADD: ownerId field so public registration links staff to owner
+// ============================================================
+
 import jakarta.validation.constraints.*;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-/**
- * Used by Bus Owner to register a Driver or Conductor.
- * OOP Polymorphism: same DTO handles both staff types — staffType field drives behavior.
- */
 @Data @NoArgsConstructor @AllArgsConstructor @Builder
 public class RegisterStaffRequest {
-    @NotBlank  private String fullName;
-    @Email     private String email;
-    @NotBlank  private String phone;
-    @Size(min=8) private String password;       // Owner sets initial password for staff
 
     @NotBlank
-    @Pattern(regexp = "driver|conductor")
-    private String staffType;                   // "driver" or "conductor"
+    private String fullName;
 
-    @NotBlank  private String employeeId;
-    @NotNull   private LocalDate dateOfJoining;
-    private String  licenseNumber;              // Required only for driver
-    private LocalDate licenseExpiry;            // Required only for driver
+    @Email @NotBlank
+    private String email;
+
+    @NotBlank
+    private String phone;
+
+    @NotBlank @Size(min = 8)
+    private String password;
+
+    @NotBlank
+    @Pattern(regexp = "driver|conductor",
+            message = "staffType must be 'driver' or 'conductor'")
+    private String staffType;
+
+    @NotBlank
+    private String employeeId;
+
+    // FIX: was @NotNull — changed to nullable with default in service
+    private LocalDate dateOfJoining;
+
+    private String    licenseNumber;   // Required only for driver
+    private LocalDate licenseExpiry;   // Required only for driver
     private BigDecimal baseSalary;
-    private Integer busId;                      // Optional: assign to bus immediately
+    private Integer   busId;           // Optional: assign to bus immediately
+
+    // NEW FIELD: Bus owner's ID — used when endpoint is called publicly
+    // (without a bus_owner JWT token). The Flutter app sends this explicitly.
+    private Integer ownerId;
 }

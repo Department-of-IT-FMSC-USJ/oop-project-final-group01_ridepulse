@@ -69,7 +69,7 @@ class PassengerRouteDetailScreen extends ConsumerWidget {
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
                         child: Row(children: [
-                          Text('\${buses.length} bus\${buses.length == 1 ? "" : "es"} on this route',
+                          Text('\${buses.length} bus${buses.length == 1 ? "" : "es"} on this route',
                               style: const TextStyle(
                                   fontWeight: FontWeight.w600, fontSize: 14)),
                           const Spacer(),
@@ -89,7 +89,7 @@ class PassengerRouteDetailScreen extends ConsumerWidget {
                         itemBuilder: (_, i) => _BusCard(
                           bus: buses[i],
                           onTap: () => context.go(
-                              '/passenger/buses/\${buses[i].busId}/live')),
+                              '/passenger/buses/${buses[i].busId}/live')),
                       )),
                     ]),
             )),
